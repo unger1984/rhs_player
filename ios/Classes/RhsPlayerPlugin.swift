@@ -2,21 +2,21 @@ import Flutter
 import UIKit
 import MediaPlayer
 
-public class ThaPlayerPlugin: NSObject, FlutterPlugin {
+public class RhsPlayerPlugin: NSObject, FlutterPlugin {
   private var utilChannel: FlutterMethodChannel?
 
   public static func register(with registrar: FlutterPluginRegistrar) {
     let versionChannel = FlutterMethodChannel(name: "tha_player", binaryMessenger: registrar.messenger())
-    let instance = ThaPlayerPlugin()
+    let instance = RhsPlayerPlugin()
     registrar.addMethodCallDelegate(instance, channel: versionChannel)
 
     // Extra utility channel to match Android bridge for brightness/volume
-    let util = FlutterMethodChannel(name: "thaplayer/channel", binaryMessenger: registrar.messenger())
+    let util = FlutterMethodChannel(name: "rhsplayer/channel", binaryMessenger: registrar.messenger())
     instance.utilChannel = util
     registrar.addMethodCallDelegate(instance, channel: util)
 
     // Register platform view
-    registrar.register(NativePlayerFactory(messenger: registrar.messenger()), withId: "thaplayer/native_view")
+    registrar.register(NativePlayerFactory(messenger: registrar.messenger()), withId: "rhsplayer/native_view")
   }
 
   public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {

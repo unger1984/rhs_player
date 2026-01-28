@@ -9,8 +9,8 @@ import 'native_fullscreen.dart';
 import '../utils/thumbnails.dart';
 
 /// High-level Flutter widget that renders the modern gesture driven UI.
-class ThaModernPlayer extends StatefulWidget {
-  final ThaNativePlayerController controller;
+class RhsModernPlayer extends StatefulWidget {
+  final RhsNativePlayerController controller;
   final Widget? overlay;
   final Duration doubleTapSeek;
   final Duration longPressSeek;
@@ -19,10 +19,10 @@ class ThaModernPlayer extends StatefulWidget {
   final bool startLocked;
   final bool isFullscreen;
   final bool autoFullscreen;
-  final ValueChanged<ThaPlaybackState>? onStateChanged;
+  final ValueChanged<RhsPlaybackState>? onStateChanged;
   final ValueChanged<String?>? onError;
 
-  const ThaModernPlayer({
+  const RhsModernPlayer({
     super.key,
     required this.controller,
     this.overlay,
@@ -38,10 +38,10 @@ class ThaModernPlayer extends StatefulWidget {
   });
 
   @override
-  State<ThaModernPlayer> createState() => _ThaModernPlayerState();
+  State<RhsModernPlayer> createState() => _RhsModernPlayerState();
 }
 
-class _ThaModernPlayerState extends State<ThaModernPlayer> {
+class _RhsModernPlayerState extends State<RhsModernPlayer> {
   static const Duration _longPressTick = Duration(milliseconds: 200);
   static const List<BoxFit> _boxFitChoices = <BoxFit>[
     BoxFit.contain,
@@ -74,15 +74,15 @@ class _ThaModernPlayerState extends State<ThaModernPlayer> {
   List<ThumbCue>? _thumbs;
   bool _thumbsLoading = false;
   bool _dataSaver = false;
-  List<ThaVideoTrack> _videoTracks = const <ThaVideoTrack>[];
+  List<RhsVideoTrack> _videoTracks = const <RhsVideoTrack>[];
   String? _manualTrackId;
   Future<void>? _pendingTrackFetch;
   int _trackFetchTicket = 0;
   bool _autoFullscreenTriggered = false;
-  ThaPlaybackState? _lastStateNotification;
+  RhsPlaybackState? _lastStateNotification;
   String? _lastErrorNotification;
-  List<ThaAudioTrack> _audioTracks = const <ThaAudioTrack>[];
-  List<ThaSubtitleTrack> _subtitleTracks = const <ThaSubtitleTrack>[];
+  List<RhsAudioTrack> _audioTracks = const <RhsAudioTrack>[];
+  List<RhsSubtitleTrack> _subtitleTracks = const <RhsSubtitleTrack>[];
   Future<void>? _pendingAudioFetch;
   Future<void>? _pendingSubtitleFetch;
   int _audioFetchTicket = 0;
@@ -104,12 +104,7 @@ class _ThaModernPlayerState extends State<ThaModernPlayer> {
     );
   }
 
-  Widget _circleTapButton({
-    required Widget child,
-    String? tooltip,
-    VoidCallback? onTap,
-    double? size,
-  }) {
+  Widget _circleTapButton({required Widget child, String? tooltip, VoidCallback? onTap, double? size}) {
     final resolvedSize = size ?? _circleControlSize;
     final button = Material(
       color: Colors.transparent,
@@ -130,7 +125,7 @@ class _ThaModernPlayerState extends State<ThaModernPlayer> {
     return list.first.thumbnailHeaders;
   }
 
-  ThaNativeEvents? get _events => widget.controller.events;
+  RhsNativeEvents? get _events => widget.controller.events;
 
   @override
   void dispose() {
@@ -166,12 +161,8 @@ class _ThaModernPlayerState extends State<ThaModernPlayer> {
     Navigator.of(context)
         .push(
           MaterialPageRoute(
-            builder:
-                (_) => ThaNativeFullscreenPage(
-                  controller: widget.controller,
-                  boxFitNotifier: _fit,
-                  overlay: widget.overlay,
-                ),
+            builder: (_) =>
+                RhsNativeFullscreenPage(controller: widget.controller, boxFitNotifier: _fit, overlay: widget.overlay),
           ),
         )
         .then((_) {
@@ -182,18 +173,15 @@ class _ThaModernPlayerState extends State<ThaModernPlayer> {
   }
 
   @override
-  void didUpdateWidget(covariant ThaModernPlayer oldWidget) {
+  void didUpdateWidget(covariant RhsModernPlayer oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.autoFullscreen != widget.autoFullscreen &&
-        widget.autoFullscreen) {
+    if (oldWidget.autoFullscreen != widget.autoFullscreen && widget.autoFullscreen) {
       _autoFullscreenTriggered = false;
-      WidgetsBinding.instance.addPostFrameCallback(
-        (_) => _maybeAutoFullscreen(),
-      );
+      WidgetsBinding.instance.addPostFrameCallback((_) => _maybeAutoFullscreen());
     }
   }
 
-  bool _hasStateChanged(ThaPlaybackState current) {
+  bool _hasStateChanged(RhsPlaybackState current) {
     final prev = _lastStateNotification;
     if (prev == null) return true;
     return prev.isPlaying != current.isPlaying ||
@@ -223,10 +211,7 @@ class _ThaModernPlayerState extends State<ThaModernPlayer> {
     if (vtt == null) return;
     setState(() => _thumbsLoading = true);
     try {
-      final cues = await fetchVttThumbnails(
-        vtt,
-        headers: list.first.thumbnailHeaders,
-      );
+      final cues = await fetchVttThumbnails(vtt, headers: list.first.thumbnailHeaders);
       if (!mounted) return;
       setState(() {
         _thumbs = cues;
@@ -318,23 +303,15 @@ class _ThaModernPlayerState extends State<ThaModernPlayer> {
     final target = _clampDuration(base + delta, Duration.zero, duration);
     final actual = target - base;
     if (actual.inMilliseconds == 0) {
-      final label =
-          '${_longPressDirection < 0 ? '-' : '+'}${_formatSeekValue(_longPressAccumulated)}s';
-      _showSeekFlash(
-        label,
-        _longPressDirection < 0 ? Alignment.centerLeft : Alignment.centerRight,
-      );
+      final label = '${_longPressDirection < 0 ? '-' : '+'}${_formatSeekValue(_longPressAccumulated)}s';
+      _showSeekFlash(label, _longPressDirection < 0 ? Alignment.centerLeft : Alignment.centerRight);
       return;
     }
     _longPressTarget = target;
     widget.controller.seekTo(target);
     _longPressAccumulated += _absDuration(actual);
-    final label =
-        '${_longPressDirection < 0 ? '-' : '+'}${_formatSeekValue(_longPressAccumulated)}s';
-    _showSeekFlash(
-      label,
-      _longPressDirection < 0 ? Alignment.centerLeft : Alignment.centerRight,
-    );
+    final label = '${_longPressDirection < 0 ? '-' : '+'}${_formatSeekValue(_longPressAccumulated)}s';
+    _showSeekFlash(label, _longPressDirection < 0 ? Alignment.centerLeft : Alignment.centerRight);
   }
 
   void _stopLongPressSeek({bool animateHide = true}) {
@@ -355,8 +332,7 @@ class _ThaModernPlayerState extends State<ThaModernPlayer> {
       _restartHide();
       return;
     }
-    final label =
-        '${direction < 0 ? '-' : '+'}${_formatSeekValue(accumulated)}s';
+    final label = '${direction < 0 ? '-' : '+'}${_formatSeekValue(accumulated)}s';
     _showSeekFlash(
       label,
       direction < 0 ? Alignment.centerLeft : Alignment.centerRight,
@@ -395,8 +371,7 @@ class _ThaModernPlayerState extends State<ThaModernPlayer> {
           if (!mounted || _trackFetchTicket != ticket) return;
           setState(() {
             _videoTracks = tracks;
-            if (_manualTrackId != null &&
-                tracks.every((t) => t.id != _manualTrackId)) {
+            if (_manualTrackId != null && tracks.every((t) => t.id != _manualTrackId)) {
               _manualTrackId = null;
             }
           });
@@ -418,8 +393,7 @@ class _ThaModernPlayerState extends State<ThaModernPlayer> {
           if (!mounted || _audioFetchTicket != ticket) return;
           setState(() {
             _audioTracks = tracks;
-            if (_manualAudioId != null &&
-                tracks.every((t) => t.id != _manualAudioId)) {
+            if (_manualAudioId != null && tracks.every((t) => t.id != _manualAudioId)) {
               _manualAudioId = null;
             }
           });
@@ -441,8 +415,7 @@ class _ThaModernPlayerState extends State<ThaModernPlayer> {
           if (!mounted || _subtitleFetchTicket != ticket) return;
           setState(() {
             _subtitleTracks = tracks;
-            if (_manualSubtitleId != null &&
-                tracks.every((t) => t.id != _manualSubtitleId)) {
+            if (_manualSubtitleId != null && tracks.every((t) => t.id != _manualSubtitleId)) {
               _manualSubtitleId = null;
             }
           });
@@ -455,14 +428,14 @@ class _ThaModernPlayerState extends State<ThaModernPlayer> {
         });
   }
 
-  ThaVideoTrack? get _activeTrack {
+  RhsVideoTrack? get _activeTrack {
     for (final t in _videoTracks) {
       if (t.selected) return t;
     }
     return null;
   }
 
-  void _ensureTracksLoaded(ThaPlaybackState st) {
+  void _ensureTracksLoaded(RhsPlaybackState st) {
     if (st.isBuffering && st.duration == Duration.zero) return;
     if (_videoTracks.isEmpty) _refreshVideoTracks();
     if (_audioTracks.isEmpty) _refreshAudioTracks();
@@ -522,10 +495,7 @@ class _ThaModernPlayerState extends State<ThaModernPlayer> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (selected)
-            const Icon(Icons.check, size: 16, color: Colors.white)
-          else
-            const SizedBox(width: 16),
+          if (selected) const Icon(Icons.check, size: 16, color: Colors.white) else const SizedBox(width: 16),
           const SizedBox(width: 8),
           Expanded(
             child: Column(
@@ -549,11 +519,11 @@ class _ThaModernPlayerState extends State<ThaModernPlayer> {
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<ThaPlaybackState>(
+    return ValueListenableBuilder<RhsPlaybackState>(
       valueListenable:
           _events?.state ??
           ValueNotifier(
-            const ThaPlaybackState(
+            const RhsPlaybackState(
               position: Duration.zero,
               duration: Duration.zero,
               isPlaying: false,
@@ -598,23 +568,17 @@ class _ThaModernPlayerState extends State<ThaModernPlayer> {
             if (left || right) {
               final delta = left ? -widget.doubleTapSeek : widget.doubleTapSeek;
               final t = st.position + delta;
-              final target =
-                  t < Duration.zero
-                      ? Duration.zero
-                      : (t > st.duration ? st.duration : t);
+              final target = t < Duration.zero ? Duration.zero : (t > st.duration ? st.duration : t);
               _stopLongPressSeek(animateHide: false);
               widget.controller.seekTo(target);
-              final text =
-                  "${delta.isNegative ? '-' : '+'}${_formatSeekValue(widget.doubleTapSeek)}s";
+              final text = "${delta.isNegative ? '-' : '+'}${_formatSeekValue(widget.doubleTapSeek)}s";
               _showSeekFlash(
                 text,
                 left ? Alignment.centerLeft : Alignment.centerRight,
                 hideAfter: const Duration(milliseconds: 600),
               );
             } else {
-              st.isPlaying
-                  ? widget.controller.pause()
-                  : widget.controller.play();
+              st.isPlaying ? widget.controller.pause() : widget.controller.play();
             }
             _restartHide();
           },
@@ -632,13 +596,8 @@ class _ThaModernPlayerState extends State<ThaModernPlayer> {
             final start = _hStart;
             if (start == null) return;
             final diff = d.localPosition.dx - start.dx;
-            final newPos =
-                (_preview ?? st.position) +
-                Duration(milliseconds: (diff * 50).toInt());
-            final clamped =
-                newPos < Duration.zero
-                    ? Duration.zero
-                    : (newPos > st.duration ? st.duration : newPos);
+            final newPos = (_preview ?? st.position) + Duration(milliseconds: (diff * 50).toInt());
+            final clamped = newPos < Duration.zero ? Duration.zero : (newPos > st.duration ? st.duration : newPos);
             setState(() => _preview = clamped);
           },
           onHorizontalDragEnd: (_) {
@@ -718,12 +677,7 @@ class _ThaModernPlayerState extends State<ThaModernPlayer> {
             children: [
               ValueListenableBuilder<BoxFit>(
                 valueListenable: _fit,
-                builder:
-                    (_, fit, __) => ThaNativePlayerView(
-                      controller: widget.controller,
-                      boxFit: fit,
-                      overlay: null,
-                    ),
+                builder: (_, fit, __) => RhsNativePlayerView(controller: widget.controller, boxFit: fit, overlay: null),
               ),
               // Top transparent interaction layer to ensure taps anywhere are detected
               Positioned.fill(
@@ -754,33 +708,26 @@ class _ThaModernPlayerState extends State<ThaModernPlayer> {
                     final right = x > 2 * w / 3;
                     final st =
                         _events?.state.value ??
-                        const ThaPlaybackState(
+                        const RhsPlaybackState(
                           position: Duration.zero,
                           duration: Duration.zero,
                           isPlaying: false,
                           isBuffering: false,
                         );
                     if (left || right) {
-                      final delta =
-                          left ? -widget.doubleTapSeek : widget.doubleTapSeek;
+                      final delta = left ? -widget.doubleTapSeek : widget.doubleTapSeek;
                       final t = st.position + delta;
-                      final target =
-                          t < Duration.zero
-                              ? Duration.zero
-                              : (t > st.duration ? st.duration : t);
+                      final target = t < Duration.zero ? Duration.zero : (t > st.duration ? st.duration : t);
                       _stopLongPressSeek(animateHide: false);
                       widget.controller.seekTo(target);
-                      final text =
-                          "${delta.isNegative ? '-' : '+'}${_formatSeekValue(widget.doubleTapSeek)}s";
+                      final text = "${delta.isNegative ? '-' : '+'}${_formatSeekValue(widget.doubleTapSeek)}s";
                       _showSeekFlash(
                         text,
                         left ? Alignment.centerLeft : Alignment.centerRight,
                         hideAfter: const Duration(milliseconds: 600),
                       );
                     } else {
-                      st.isPlaying
-                          ? widget.controller.pause()
-                          : widget.controller.play();
+                      st.isPlaying ? widget.controller.pause() : widget.controller.play();
                     }
                     _restartHide();
                   },
@@ -790,7 +737,7 @@ class _ThaModernPlayerState extends State<ThaModernPlayer> {
                     }
                     final st =
                         _events?.state.value ??
-                        const ThaPlaybackState(
+                        const RhsPlaybackState(
                           position: Duration.zero,
                           duration: Duration.zero,
                           isPlaying: false,
@@ -805,7 +752,7 @@ class _ThaModernPlayerState extends State<ThaModernPlayer> {
                     }
                     final st =
                         _events?.state.value ??
-                        const ThaPlaybackState(
+                        const RhsPlaybackState(
                           position: Duration.zero,
                           duration: Duration.zero,
                           isPlaying: false,
@@ -814,13 +761,10 @@ class _ThaModernPlayerState extends State<ThaModernPlayer> {
                     final start = _hStart;
                     if (start == null) return;
                     final diff = d.localPosition.dx - start.dx;
-                    final newPos =
-                        (_preview ?? st.position) +
-                        Duration(milliseconds: (diff * 50).toInt());
-                    final clamped =
-                        newPos < Duration.zero
-                            ? Duration.zero
-                            : (newPos > st.duration ? st.duration : newPos);
+                    final newPos = (_preview ?? st.position) + Duration(milliseconds: (diff * 50).toInt());
+                    final clamped = newPos < Duration.zero
+                        ? Duration.zero
+                        : (newPos > st.duration ? st.duration : newPos);
                     setState(() => _preview = clamped);
                   },
                   onHorizontalDragEnd: (_) {
@@ -902,70 +846,36 @@ class _ThaModernPlayerState extends State<ThaModernPlayer> {
                 ),
               ),
               if (widget.overlay != null)
-                Positioned(
-                  top: 12,
-                  right: 12,
-                  child: IgnorePointer(ignoring: false, child: widget.overlay!),
-                ),
+                Positioned(top: 12, right: 12, child: IgnorePointer(ignoring: false, child: widget.overlay!)),
               if (_preview != null)
                 Center(
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.black54,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(8)),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        if (_thumbs != null && _thumbs!.isNotEmpty)
-                          _buildThumbFor(_preview!),
+                        if (_thumbs != null && _thumbs!.isNotEmpty) _buildThumbFor(_preview!),
                         const SizedBox(height: 4),
-                        Text(
-                          _fmt(_preview!),
-                          style: const TextStyle(color: Colors.white),
-                        ),
+                        Text(_fmt(_preview!), style: const TextStyle(color: Colors.white)),
                       ],
                     ),
                   ),
                 ),
               if (st.isBuffering)
                 const Center(
-                  child: SizedBox(
-                    width: 36,
-                    height: 36,
-                    child: CircularProgressIndicator(color: Colors.white),
-                  ),
+                  child: SizedBox(width: 36, height: 36, child: CircularProgressIndicator(color: Colors.white)),
                 ),
-              if (_showControls)
-                Align(
-                  alignment: Alignment.bottomCenter,
-                  child: _controls(context, st),
-                ),
+              if (_showControls) Align(alignment: Alignment.bottomCenter, child: _controls(context, st)),
               if (_seekFlash != null)
                 Align(
                   alignment: _seekFlashAlign,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.black54,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        _seekFlash!,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                        ),
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(8)),
+                      child: Text(_seekFlash!, style: const TextStyle(color: Colors.white, fontSize: 14)),
                     ),
                   ),
                 ),
@@ -990,20 +900,14 @@ class _ThaModernPlayerState extends State<ThaModernPlayer> {
                   right: 12,
                   top: 24,
                   bottom: 24,
-                  child: _VerticalSlider(
-                    value: _volLevel,
-                    icon: Icons.volume_up,
-                  ),
+                  child: _VerticalSlider(value: _volLevel, icon: Icons.volume_up),
                 ),
               if (_showBri)
                 Positioned(
                   left: 12,
                   top: 24,
                   bottom: 24,
-                  child: _VerticalSlider(
-                    value: _briLevel,
-                    icon: Icons.brightness_6,
-                  ),
+                  child: _VerticalSlider(value: _briLevel, icon: Icons.brightness_6),
                 ),
               // Error overlay (retry) on top of everything
               if (_events?.error.value != null)
@@ -1013,11 +917,7 @@ class _ThaModernPlayerState extends State<ThaModernPlayer> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(
-                          Icons.error_outline,
-                          color: Colors.white70,
-                          size: 36,
-                        ),
+                        const Icon(Icons.error_outline, color: Colors.white70, size: 36),
                         const SizedBox(height: 8),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -1046,7 +946,7 @@ class _ThaModernPlayerState extends State<ThaModernPlayer> {
     );
   }
 
-  Widget _controls(BuildContext context, ThaPlaybackState st) {
+  Widget _controls(BuildContext context, RhsPlaybackState st) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isShortHeight = constraints.maxHeight < 230;
@@ -1058,35 +958,20 @@ class _ThaModernPlayerState extends State<ThaModernPlayer> {
 
         return Container(
           color: Colors.transparent,
-          padding: EdgeInsets.fromLTRB(
-            16,
-            isShortHeight ? 10 : 14,
-            16,
-            isShortHeight ? 14 : 18,
-          ),
+          padding: EdgeInsets.fromLTRB(16, isShortHeight ? 10 : 14, 16, isShortHeight ? 14 : 18),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               if (circleControls.isNotEmpty)
                 Align(
                   alignment: Alignment.topLeft,
-                  child: Wrap(
-                    spacing: circleSpacing,
-                    runSpacing: circleSpacing,
-                    children: circleControls,
-                  ),
+                  child: Wrap(spacing: circleSpacing, runSpacing: circleSpacing, children: circleControls),
                 ),
               if (circleControls.isNotEmpty) SizedBox(height: verticalGap),
               const Spacer(),
               _buildProgressRow(context, st),
               // SizedBox(height: verticalGap),
-              _buildTransportRow(
-                context,
-                st,
-                circleSize,
-                playDiameter,
-                isShortHeight,
-              ),
+              _buildTransportRow(context, st, circleSize, playDiameter, isShortHeight),
             ],
           ),
         );
@@ -1094,13 +979,10 @@ class _ThaModernPlayerState extends State<ThaModernPlayer> {
     );
   }
 
-  Widget _buildProgressRow(BuildContext context, ThaPlaybackState st) {
+  Widget _buildProgressRow(BuildContext context, RhsPlaybackState st) {
     return Row(
       children: [
-        Text(
-          _fmt(st.position),
-          style: const TextStyle(color: Colors.white, fontSize: 12),
-        ),
+        Text(_fmt(st.position), style: const TextStyle(color: Colors.white, fontSize: 12)),
         Expanded(
           child: SliderTheme(
             data: SliderTheme.of(context).copyWith(
@@ -1113,18 +995,9 @@ class _ThaModernPlayerState extends State<ThaModernPlayer> {
             ),
             child: Slider(
               min: 0,
-              max: st.duration.inMilliseconds.toDouble().clamp(
-                1,
-                double.infinity,
-              ),
-              value:
-                  st.position.inMilliseconds
-                      .clamp(0, st.duration.inMilliseconds)
-                      .toDouble(),
-              onChanged:
-                  (v) => setState(
-                    () => _preview = Duration(milliseconds: v.toInt()),
-                  ),
+              max: st.duration.inMilliseconds.toDouble().clamp(1, double.infinity),
+              value: st.position.inMilliseconds.clamp(0, st.duration.inMilliseconds).toDouble(),
+              onChanged: (v) => setState(() => _preview = Duration(milliseconds: v.toInt())),
               onChangeEnd: (v) {
                 widget.controller.seekTo(Duration(milliseconds: v.toInt()));
                 setState(() => _preview = null);
@@ -1132,10 +1005,7 @@ class _ThaModernPlayerState extends State<ThaModernPlayer> {
             ),
           ),
         ),
-        Text(
-          _fmt(st.duration),
-          style: const TextStyle(color: Colors.white, fontSize: 12),
-        ),
+        Text(_fmt(st.duration), style: const TextStyle(color: Colors.white, fontSize: 12)),
       ],
     );
   }
@@ -1153,7 +1023,7 @@ class _ThaModernPlayerState extends State<ThaModernPlayer> {
 
   Widget _buildTransportRow(
     BuildContext context,
-    ThaPlaybackState st,
+    RhsPlaybackState st,
     double circleSize,
     double playDiameter,
     bool isShortHeight,
@@ -1186,7 +1056,7 @@ class _ThaModernPlayerState extends State<ThaModernPlayer> {
     );
   }
 
-  Widget _buildPlayPauseButton(ThaPlaybackState st, {double? diameter}) {
+  Widget _buildPlayPauseButton(RhsPlaybackState st, {double? diameter}) {
     final icon = st.isPlaying ? Icons.pause : Icons.play_arrow;
     final overlayOpacity = st.isPlaying ? 0.35 : 0.22;
     final size = diameter ?? 68.0;
@@ -1203,21 +1073,14 @@ class _ThaModernPlayerState extends State<ThaModernPlayer> {
         duration: const Duration(milliseconds: 150),
         width: size,
         height: size,
-        decoration: BoxDecoration(
-          color: Color.fromRGBO(255, 255, 255, overlayOpacity),
-          shape: BoxShape.circle,
-        ),
+        decoration: BoxDecoration(color: Color.fromRGBO(255, 255, 255, overlayOpacity), shape: BoxShape.circle),
         alignment: Alignment.center,
         child: Icon(icon, color: Colors.white, size: size * 0.5),
       ),
     );
   }
 
-  Widget _buildSeekButton(
-    ThaPlaybackState st,
-    Duration offset,
-    double circleSize,
-  ) {
+  Widget _buildSeekButton(RhsPlaybackState st, Duration offset, double circleSize) {
     final isForward = offset.inMilliseconds > 0;
     final seconds = offset.inSeconds.abs();
     final icon = _seekIconFor(seconds, isForward);
@@ -1228,10 +1091,7 @@ class _ThaModernPlayerState extends State<ThaModernPlayer> {
       final sign = isForward ? '+' : '-';
       child = Text(
         '$sign${seconds}s',
-        style: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w600,
-        ),
+        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
       );
     }
     return _circleTapButton(
@@ -1255,7 +1115,7 @@ class _ThaModernPlayerState extends State<ThaModernPlayer> {
     return null;
   }
 
-  void _seekRelative(ThaPlaybackState st, Duration offset) {
+  void _seekRelative(RhsPlaybackState st, Duration offset) {
     final current = _events?.state.value ?? st;
     final durationMs = current.duration.inMilliseconds;
     if (durationMs <= 0) return;
@@ -1314,10 +1174,7 @@ class _ThaModernPlayerState extends State<ThaModernPlayer> {
       onOpened: () => _refreshVideoTracks(force: true),
       onSelected: (v) => unawaited(_onQualitySelected(v)),
       itemBuilder: _qualityPopupItems,
-      child: _circleShell(
-        Icon(_qualityIcon, color: Colors.white),
-        size: circleSize,
-      ),
+      child: _circleShell(Icon(_qualityIcon, color: Colors.white), size: circleSize),
     );
   }
 
@@ -1339,10 +1196,7 @@ class _ThaModernPlayerState extends State<ThaModernPlayer> {
         _restartHide();
       },
       itemBuilder: _audioPopupItems,
-      child: _circleShell(
-        const Icon(Icons.audiotrack, color: Colors.white),
-        size: circleSize,
-      ),
+      child: _circleShell(const Icon(Icons.audiotrack, color: Colors.white), size: circleSize),
     );
   }
 
@@ -1364,10 +1218,7 @@ class _ThaModernPlayerState extends State<ThaModernPlayer> {
         _restartHide();
       },
       itemBuilder: _subtitlePopupItems,
-      child: _circleShell(
-        const Icon(Icons.subtitles, color: Colors.white),
-        size: circleSize,
-      ),
+      child: _circleShell(const Icon(Icons.subtitles, color: Colors.white), size: circleSize),
     );
   }
 
@@ -1394,11 +1245,7 @@ class _ThaModernPlayerState extends State<ThaModernPlayer> {
       child: _circleShell(
         Text(
           _speedBadge,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.4,
-          ),
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, letterSpacing: 0.4),
         ),
         size: circleSize,
       ),
@@ -1463,10 +1310,9 @@ class _ThaModernPlayerState extends State<ThaModernPlayer> {
   List<PopupMenuEntry<String>> _qualityPopupItems(BuildContext context) {
     final items = <PopupMenuEntry<String>>[];
     final current = _activeTrack;
-    final autoSubtitle =
-        !_dataSaver && current != null && _manualTrackId == null
-            ? 'Current: ${current.displayLabel}'
-            : null;
+    final autoSubtitle = !_dataSaver && current != null && _manualTrackId == null
+        ? 'Current: ${current.displayLabel}'
+        : null;
     items.add(
       PopupMenuItem(
         value: 'auto',
@@ -1481,17 +1327,11 @@ class _ThaModernPlayerState extends State<ThaModernPlayer> {
     items.add(
       PopupMenuItem(
         value: 'dataSaver',
-        child: _qualityMenuRow(
-          context,
-          label: 'Data Saver',
-          subtitle: 'Cap ~0.8 Mbps',
-          selected: _dataSaver,
-        ),
+        child: _qualityMenuRow(context, label: 'Data Saver', subtitle: 'Cap ~0.8 Mbps', selected: _dataSaver),
       ),
     );
     if (_videoTracks.isNotEmpty) {
-      final sorted = [..._videoTracks]
-        ..sort((a, b) => (b.bitrate ?? 0).compareTo(a.bitrate ?? 0));
+      final sorted = [..._videoTracks]..sort((a, b) => (b.bitrate ?? 0).compareTo(a.bitrate ?? 0));
       items.add(const PopupMenuDivider());
       for (final track in sorted) {
         items.add(
@@ -1507,21 +1347,9 @@ class _ThaModernPlayerState extends State<ThaModernPlayer> {
         );
       }
     } else if (_pendingTrackFetch != null) {
-      items.add(
-        const PopupMenuItem<String>(
-          enabled: false,
-          value: '__loading__',
-          child: Text('Loading variants...'),
-        ),
-      );
+      items.add(const PopupMenuItem<String>(enabled: false, value: '__loading__', child: Text('Loading variants...')));
     } else {
-      items.add(
-        const PopupMenuItem<String>(
-          enabled: false,
-          value: '__empty__',
-          child: Text('No variants reported'),
-        ),
-      );
+      items.add(const PopupMenuItem<String>(enabled: false, value: '__empty__', child: Text('No variants reported')));
     }
     return items;
   }
@@ -1530,12 +1358,7 @@ class _ThaModernPlayerState extends State<ThaModernPlayer> {
     final items = <PopupMenuEntry<String>>[
       PopupMenuItem(
         value: '__auto__',
-        child: _qualityMenuRow(
-          context,
-          label: 'Auto',
-          subtitle: 'Default audio',
-          selected: _manualAudioId == null,
-        ),
+        child: _qualityMenuRow(context, label: 'Auto', subtitle: 'Default audio', selected: _manualAudioId == null),
       ),
     ];
     if (_audioTracks.isNotEmpty) {
@@ -1548,9 +1371,7 @@ class _ThaModernPlayerState extends State<ThaModernPlayer> {
               context,
               label: track.label ?? (track.language ?? track.id),
               subtitle: track.language,
-              selected:
-                  _manualAudioId == track.id ||
-                  (_manualAudioId == null && track.selected),
+              selected: _manualAudioId == track.id || (_manualAudioId == null && track.selected),
               isPlaying: track.selected,
             ),
           ),
@@ -1558,11 +1379,7 @@ class _ThaModernPlayerState extends State<ThaModernPlayer> {
       }
     } else if (_pendingAudioFetch != null) {
       items.add(
-        const PopupMenuItem<String>(
-          enabled: false,
-          value: '__loading_audio__',
-          child: Text('Loading audio tracks...'),
-        ),
+        const PopupMenuItem<String>(enabled: false, value: '__loading_audio__', child: Text('Loading audio tracks...')),
       );
     }
     return items;
@@ -1572,11 +1389,7 @@ class _ThaModernPlayerState extends State<ThaModernPlayer> {
     final items = <PopupMenuEntry<String>>[
       PopupMenuItem(
         value: '__off__',
-        child: _qualityMenuRow(
-          context,
-          label: 'Subtitles off',
-          selected: _manualSubtitleId == null,
-        ),
+        child: _qualityMenuRow(context, label: 'Subtitles off', selected: _manualSubtitleId == null),
       ),
     ];
     if (_subtitleTracks.isNotEmpty) {
@@ -1589,9 +1402,7 @@ class _ThaModernPlayerState extends State<ThaModernPlayer> {
               context,
               label: track.label ?? (track.language ?? track.id),
               subtitle: track.language,
-              selected:
-                  _manualSubtitleId == track.id ||
-                  (_manualSubtitleId == null && track.selected),
+              selected: _manualSubtitleId == track.id || (_manualSubtitleId == null && track.selected),
               isPlaying: track.selected,
             ),
           ),
@@ -1599,11 +1410,7 @@ class _ThaModernPlayerState extends State<ThaModernPlayer> {
       }
     } else if (_pendingSubtitleFetch != null) {
       items.add(
-        const PopupMenuItem<String>(
-          enabled: false,
-          value: '__loading_sub__',
-          child: Text('Loading subtitles...'),
-        ),
+        const PopupMenuItem<String>(enabled: false, value: '__loading_sub__', child: Text('Loading subtitles...')),
       );
     }
     return items;
@@ -1620,14 +1427,9 @@ class _ThaModernPlayerState extends State<ThaModernPlayer> {
               children: [
                 SizedBox(
                   width: 18,
-                  child:
-                      (speed - _currentSpeed).abs() < 0.01
-                          ? const Icon(
-                            Icons.check,
-                            size: 18,
-                            color: Colors.white,
-                          )
-                          : const SizedBox.shrink(),
+                  child: (speed - _currentSpeed).abs() < 0.01
+                      ? const Icon(Icons.check, size: 18, color: Colors.white)
+                      : const SizedBox.shrink(),
                 ),
                 const SizedBox(width: 8),
                 Text(_formatSpeed(speed)),
@@ -1647,74 +1449,56 @@ class _ThaModernPlayerState extends State<ThaModernPlayer> {
         return AlertDialog(
           backgroundColor: const Color(0xFF1F1F1F),
           surfaceTintColor: Colors.transparent,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(_dialogCornerRadius),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_dialogCornerRadius)),
           title: const Text('Resize', style: TextStyle(color: Colors.white)),
           contentPadding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
           content: SingleChildScrollView(
             child: Wrap(
               spacing: 10,
               runSpacing: 10,
-              children:
-                  _boxFitChoices.map((fit) {
-                    final isSelected = fit == current;
-                    final label = _boxFitLabel(fit);
-                    final icon = _boxFitIcon(fit);
-                    final borderColor =
-                        isSelected ? Colors.white : Colors.white24;
-                    final background =
-                        isSelected
-                            ? const Color.fromRGBO(255, 255, 255, 0.18)
-                            : const Color.fromRGBO(255, 255, 255, 0.04);
-                    return SizedBox(
-                      width: 88,
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(
-                            _dialogCornerRadius,
-                          ),
-                          onTap: () => Navigator.of(dialogContext).pop(fit),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 10,
-                            ),
-                            decoration: BoxDecoration(
-                              color: background,
-                              borderRadius: BorderRadius.circular(
-                                _dialogCornerRadius,
+              children: _boxFitChoices.map((fit) {
+                final isSelected = fit == current;
+                final label = _boxFitLabel(fit);
+                final icon = _boxFitIcon(fit);
+                final borderColor = isSelected ? Colors.white : Colors.white24;
+                final background = isSelected
+                    ? const Color.fromRGBO(255, 255, 255, 0.18)
+                    : const Color.fromRGBO(255, 255, 255, 0.04);
+                return SizedBox(
+                  width: 88,
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(_dialogCornerRadius),
+                      onTap: () => Navigator.of(dialogContext).pop(fit),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: background,
+                          borderRadius: BorderRadius.circular(_dialogCornerRadius),
+                          border: Border.all(color: borderColor, width: isSelected ? 2 : 1),
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(icon, color: Colors.white, size: 26),
+                            const SizedBox(height: 6),
+                            Text(
+                              label,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                               ),
-                              border: Border.all(
-                                color: borderColor,
-                                width: isSelected ? 2 : 1,
-                              ),
                             ),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(icon, color: Colors.white, size: 26),
-                                const SizedBox(height: 6),
-                                Text(
-                                  label,
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 11,
-                                    fontWeight:
-                                        isSelected
-                                            ? FontWeight.bold
-                                            : FontWeight.normal,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
+                          ],
                         ),
                       ),
-                    );
-                  }).toList(),
+                    ),
+                  ),
+                );
+              }).toList(),
             ),
           ),
           actions: [
@@ -1791,23 +1575,12 @@ class _ThaModernPlayerState extends State<ThaModernPlayer> {
     }
     cue ??= cues.last;
     final uri = cue.image.toString();
-    final crop =
-        cue.hasCrop
-            ? Rect.fromLTWH(
-              (cue.x!).toDouble(),
-              (cue.y!).toDouble(),
-              (cue.w!).toDouble(),
-              (cue.h!).toDouble(),
-            )
-            : null;
+    final crop = cue.hasCrop
+        ? Rect.fromLTWH((cue.x!).toDouble(), (cue.y!).toDouble(), (cue.w!).toDouble(), (cue.h!).toDouble())
+        : null;
     const targetW = 160.0;
     if (crop == null) {
-      return Image.network(
-        uri,
-        width: targetW,
-        fit: BoxFit.cover,
-        headers: _thumbHeaders,
-      );
+      return Image.network(uri, width: targetW, fit: BoxFit.cover, headers: _thumbHeaders);
     }
     final scale = targetW / crop.width;
     return ClipRect(
@@ -1835,10 +1608,7 @@ class _VerticalSlider extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: 36,
-      decoration: BoxDecoration(
-        color: Colors.black54,
-        borderRadius: BorderRadius.circular(8),
-      ),
+      decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(8)),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [

@@ -6,10 +6,7 @@ import '../core/media_source.dart';
 
 /// Parses a simple M3U playlist (not HLS). Lines beginning with `#` are ignored
 /// except `#EXTINF` metadata which is currently skipped.
-Future<List<ThaMediaSource>> parseM3U(
-  String url, {
-  Map<String, String>? headers,
-}) async {
+Future<List<RhsMediaSource>> parseM3U(String url, {Map<String, String>? headers}) async {
   final client = HttpClient();
   if (headers != null && headers.isNotEmpty) {
     client.userAgent = headers['User-Agent'];
@@ -22,7 +19,7 @@ Future<List<ThaMediaSource>> parseM3U(
   }
   final body = await utf8.decodeStream(resp);
   final lines = body.split('\n');
-  final result = <ThaMediaSource>[];
+  final result = <RhsMediaSource>[];
   for (final raw in lines) {
     final line = raw.trim();
     if (line.isEmpty) continue;
@@ -34,7 +31,7 @@ Future<List<ThaMediaSource>> parseM3U(
       final base = Uri.parse(url);
       resolved = base.resolveUri(Uri.parse(line)).toString();
     }
-    result.add(ThaMediaSource(resolved));
+    result.add(RhsMediaSource(resolved));
   }
   return result;
 }

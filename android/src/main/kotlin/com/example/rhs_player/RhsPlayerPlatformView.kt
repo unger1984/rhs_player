@@ -1,4 +1,4 @@
-package com.example.tha_player
+package com.example.rhs_player
 
 import android.app.Activity
 import android.app.PictureInPictureParams
@@ -39,7 +39,7 @@ import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
 import java.lang.ref.WeakReference
 
-class ThaPlayerPlatformView(
+class RhsPlayerPlatformView(
   context: Context,
   messenger: BinaryMessenger,
   private val viewId: Int,
@@ -47,8 +47,8 @@ class ThaPlayerPlatformView(
 ) : PlatformView {
   private val container: FrameLayout = FrameLayout(context)
   private val playerView: PlayerView = PlayerView(context)
-  private val channel: MethodChannel = MethodChannel(messenger, "thaplayer/view_${viewId}")
-  private val eventChannel: EventChannel = EventChannel(messenger, "thaplayer/events_${viewId}")
+  private val channel: MethodChannel = MethodChannel(messenger, "rhsplayer/view_${viewId}")
+  private val eventChannel: EventChannel = EventChannel(messenger, "rhsplayer/events_${viewId}")
   private val mainHandler = Handler(Looper.getMainLooper())
   private var eventsSink: EventChannel.EventSink? = null
   private var progressRunnable: Runnable? = null
@@ -533,7 +533,7 @@ class ThaPlayerPlatformView(
 
   private fun requestPictureInPicture(): Boolean {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return false
-    val activity = ThaPlayerPlugin.currentActivity() ?: findActivity(container.context) ?: return false
+    val activity = RhsPlayerPlugin.currentActivity() ?: findActivity(container.context) ?: return false
     val builder = PictureInPictureParams.Builder()
     val size = player.videoSize
     if (size.width > 0 && size.height > 0) {
@@ -631,7 +631,7 @@ private object SharedPlayerRegistry {
       existing
     } else {
       val player = ExoPlayer.Builder(context).build()
-      val mediaSession = MediaSessionCompat(context, "ThaPlayer_$controllerId").apply {
+      val mediaSession = MediaSessionCompat(context, "RhsPlayer_$controllerId").apply {
         setCallback(object : MediaSessionCompat.Callback() {
           override fun onPlay() { player.play() }
           override fun onPause() { player.pause() }
@@ -791,7 +791,7 @@ private fun SharedPlayerEntry.ensureInitialized(
     }
 
     val mediaItem = builder.build()
-    val okClient = ThaPlayerHttpClientProvider.obtainClient()
+    val okClient = RhsPlayerHttpClientProvider.obtainClient()
     val httpFactory: DataSource.Factory = OkHttpDataSource.Factory(okClient)
       .setDefaultRequestProperties(headers)
     val msFactory = DefaultMediaSourceFactory(httpFactory)

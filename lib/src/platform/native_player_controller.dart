@@ -12,37 +12,37 @@ import 'playback_options.dart';
 ///
 /// The controller manages the playlist, lifecycle, and exposes convenience
 /// methods like [play], [pause], [seekTo], and track selection.
-class ThaNativePlayerController {
-  final List<ThaMediaSource> playlist;
+class RhsNativePlayerController {
+  final List<RhsMediaSource> playlist;
   final bool autoPlay;
   final bool loop;
-  final ThaPlaybackOptions playbackOptions;
+  final RhsPlaybackOptions playbackOptions;
   static int _nextControllerId = 1;
   final int _controllerId;
   MethodChannel? _channel;
-  ThaNativeEvents? _events;
+  RhsNativeEvents? _events;
   int _resumePositionMs = 0;
   bool _wasPlaying = false;
   VoidCallback? _eventsListener;
   bool _dataSaver = false;
 
   /// Create a controller with a single media item.
-  ThaNativePlayerController.single(
-    ThaMediaSource source, {
+  RhsNativePlayerController.single(
+    RhsMediaSource source, {
     this.autoPlay = true,
     this.loop = false,
-    this.playbackOptions = const ThaPlaybackOptions(),
+    this.playbackOptions = const RhsPlaybackOptions(),
   }) : playlist = [source],
        _controllerId = _nextControllerId++ {
     _wasPlaying = autoPlay;
   }
 
   /// Create a controller for a custom playlist.
-  ThaNativePlayerController.playlist(
+  RhsNativePlayerController.playlist(
     this.playlist, {
     this.autoPlay = true,
     this.loop = false,
-    this.playbackOptions = const ThaPlaybackOptions(),
+    this.playbackOptions = const RhsPlaybackOptions(),
   }) : _controllerId = _nextControllerId++ {
     _wasPlaying = autoPlay;
   }
@@ -56,25 +56,17 @@ class ThaNativePlayerController {
     'dataSaver': _dataSaver,
     'playbackOptions': playbackOptions.toMap(),
     'controllerId': _controllerId,
-    'playlist':
-        playlist
-            .map(
-              (s) => {
-                'url': s.url,
-                'headers': s.headers ?? {},
-                'isLive': s.isLive,
-                'drm': _drmToMap(s.drm),
-              },
-            )
-            .toList(),
+    'playlist': playlist
+        .map((s) => {'url': s.url, 'headers': s.headers ?? {}, 'isLive': s.isLive, 'drm': _drmToMap(s.drm)})
+        .toList(),
   };
 
   /// Bind the controller to a platform view id.
   void attachViewId(int id) {
-    _channel = MethodChannel('thaplayer/view_$id');
+    _channel = MethodChannel('rhsplayer/view_$id');
     // Rebind events; dispose previous to avoid leaks
     _events?.dispose();
-    final ev = ThaNativeEvents(id);
+    final ev = RhsNativeEvents(id);
     ev.start();
     _events = ev;
     _eventsListener?.call();
@@ -86,7 +78,7 @@ class ThaNativePlayerController {
     ev.state.addListener(_eventsListener!);
   }
 
-  Map<String, dynamic> _drmToMap(ThaDrmConfig drm) => {
+  Map<String, dynamic> _drmToMap(RhsDrmConfig drm) => {
     'type': drm.type.name,
     'licenseUrl': drm.licenseUrl,
     'headers': drm.headers ?? {},
@@ -101,16 +93,13 @@ class ThaNativePlayerController {
   Future<void> pause() async => _invoke('pause');
 
   /// Seek to a new [position].
-  Future<void> seekTo(Duration position) async =>
-      _invoke('seekTo', {'millis': position.inMilliseconds});
+  Future<void> seekTo(Duration position) async => _invoke('seekTo', {'millis': position.inMilliseconds});
 
   /// Adjust the playback [speed].
-  Future<void> setSpeed(double speed) async =>
-      _invoke('setSpeed', {'speed': speed});
+  Future<void> setSpeed(double speed) async => _invoke('setSpeed', {'speed': speed});
 
   /// Toggle looping for the current item or playlist.
-  Future<void> setLooping(bool looping) async =>
-      _invoke('setLooping', {'loop': looping});
+  Future<void> setLooping(bool looping) async => _invoke('setLooping', {'loop': looping});
 
   /// Update the content scaling of the platform view.
   Future<void> setBoxFit(BoxFit fit) async => _invoke('setBoxFit', {
@@ -135,13 +124,13 @@ class ThaNativePlayerController {
   }
 
   /// Retrieves the available video tracks from the native player.
-  Future<List<ThaVideoTrack>> getVideoTracks() async {
+  Future<List<RhsVideoTrack>> getVideoTracks() async {
     final raw = await _invokeResult<List<dynamic>>('getVideoTracks');
     if (raw == null) return const [];
     return raw
         .map((e) => e is Map ? Map<dynamic, dynamic>.from(e) : null)
         .whereType<Map<dynamic, dynamic>>()
-        .map(ThaVideoTrack.fromMap)
+        .map(RhsVideoTrack.fromMap)
         .toList();
   }
 
@@ -156,13 +145,13 @@ class ThaNativePlayerController {
   }
 
   /// Retrieves the available audio tracks.
-  Future<List<ThaAudioTrack>> getAudioTracks() async {
+  Future<List<RhsAudioTrack>> getAudioTracks() async {
     final raw = await _invokeResult<List<dynamic>>('getAudioTracks');
     if (raw == null) return const [];
     return raw
         .map((e) => e is Map ? Map<dynamic, dynamic>.from(e) : null)
         .whereType<Map<dynamic, dynamic>>()
-        .map(ThaAudioTrack.fromMap)
+        .map(RhsAudioTrack.fromMap)
         .toList();
   }
 
@@ -172,13 +161,13 @@ class ThaNativePlayerController {
   }
 
   /// Retrieves legible subtitle / caption tracks.
-  Future<List<ThaSubtitleTrack>> getSubtitleTracks() async {
+  Future<List<RhsSubtitleTrack>> getSubtitleTracks() async {
     final raw = await _invokeResult<List<dynamic>>('getSubtitleTracks');
     if (raw == null) return const [];
     return raw
         .map((e) => e is Map ? Map<dynamic, dynamic>.from(e) : null)
         .whereType<Map<dynamic, dynamic>>()
-        .map(ThaSubtitleTrack.fromMap)
+        .map(RhsSubtitleTrack.fromMap)
         .toList();
   }
 
@@ -200,7 +189,7 @@ class ThaNativePlayerController {
   }
 
   /// Playback events emitted by the native layer.
-  ThaNativeEvents? get events => _events;
+  RhsNativeEvents? get events => _events;
 
   Future<void> _invoke(String method, [Map<String, dynamic>? args]) async {
     final ch = _channel;
@@ -210,10 +199,7 @@ class ThaNativePlayerController {
     } catch (_) {}
   }
 
-  Future<T?> _invokeResult<T>(
-    String method, [
-    Map<String, dynamic>? args,
-  ]) async {
+  Future<T?> _invokeResult<T>(String method, [Map<String, dynamic>? args]) async {
     final ch = _channel;
     if (ch == null) return null;
     try {

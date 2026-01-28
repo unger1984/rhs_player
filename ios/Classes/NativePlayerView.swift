@@ -33,8 +33,8 @@ class NativePlayerView: NSObject, FlutterPlatformView {
 
   init(frame: CGRect, viewId: Int64, messenger: FlutterBinaryMessenger, params: [String: Any]?) {
     container = PlayerContainerView(frame: frame)
-    channel = FlutterMethodChannel(name: "thaplayer/view_\(viewId)", binaryMessenger: messenger)
-    eventChannel = FlutterEventChannel(name: "thaplayer/events_\(viewId)", binaryMessenger: messenger)
+    channel = FlutterMethodChannel(name: "rhsplayer/view_\(viewId)", binaryMessenger: messenger)
+    eventChannel = FlutterEventChannel(name: "rhsplayer/events_\(viewId)", binaryMessenger: messenger)
     super.init()
 
     playerLayer.player = player

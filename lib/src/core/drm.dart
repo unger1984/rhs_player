@@ -1,14 +1,14 @@
 /// Supported DRM schemes for the native players.
-enum ThaDrmType { none, widevine, clearKey }
+enum RhsDrmType { none, widevine, clearKey }
 
 /// Bundle of DRM configuration passed to the native player engines.
 ///
 /// The same config object is used on Android (Widevine / ClearKey) and iOS
 /// (AVContentKey). Values are forwarded verbatim, so provider specific header
 /// and token formats can be used without modification.
-class ThaDrmConfig {
-  /// DRM scheme to activate. Use [ThaDrmType.none] for clear content.
-  final ThaDrmType type;
+class RhsDrmConfig {
+  /// DRM scheme to activate. Use [RhsDrmType.none] for clear content.
+  final RhsDrmType type;
 
   /// Optional license server endpoint (e.g. Widevine licence URL).
   final String? licenseUrl;
@@ -24,18 +24,12 @@ class ThaDrmConfig {
   final String? contentId;
 
   /// Creates a DRM configuration.
-  const ThaDrmConfig({
-    required this.type,
-    this.licenseUrl,
-    this.headers,
-    this.clearKey,
-    this.contentId,
-  });
+  const RhsDrmConfig({required this.type, this.licenseUrl, this.headers, this.clearKey, this.contentId});
 
   /// Indicates whether DRM is enabled for the current media.
-  bool get isDrm => type != ThaDrmType.none;
+  bool get isDrm => type != RhsDrmType.none;
 
   @override
   String toString() =>
-      'ThaDrmConfig(type: $type, licenseUrl: $licenseUrl, hasHeaders: ${headers?.isNotEmpty == true}, contentId: $contentId, clearKey: ${clearKey != null ? "***" : null})';
+      'RhsDrmConfig(type: $type, licenseUrl: $licenseUrl, hasHeaders: ${headers?.isNotEmpty == true}, contentId: $contentId, clearKey: ${clearKey != null ? "***" : null})';
 }

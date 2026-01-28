@@ -8,20 +8,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:tha_player_example/main.dart';
+import '../lib/main.dart';
 
 void main() {
   testWidgets('renders home screen controls', (WidgetTester tester) async {
     await tester.pumpWidget(const MyApp());
 
-    expect(find.text('tha_player'), findsOneWidget);
+    expect(find.text('rhs_player'), findsOneWidget);
     expect(find.byType(TextField), findsOneWidget);
     expect(find.text('Play Now'), findsOneWidget);
 
-    await tester.enterText(
-      find.byType(TextField),
-      'https://example.com/video.mp4',
-    );
+    await tester.enterText(find.byType(TextField), 'https://example.com/video.mp4');
     await tester.tap(find.text('Play Now'));
     await tester.pump();
 

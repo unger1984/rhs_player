@@ -7,26 +7,21 @@ import 'package:flutter/gestures.dart';
 import 'native_player_controller.dart';
 
 /// Wraps the Android/iOS platform view that renders the native video surface.
-class ThaNativePlayerView extends StatefulWidget {
-  final ThaNativePlayerController controller;
+class RhsNativePlayerView extends StatefulWidget {
+  final RhsNativePlayerController controller;
   final Widget? overlay;
   final BoxFit boxFit;
 
-  const ThaNativePlayerView({
-    super.key,
-    required this.controller,
-    this.overlay,
-    this.boxFit = BoxFit.contain,
-  });
+  const RhsNativePlayerView({super.key, required this.controller, this.overlay, this.boxFit = BoxFit.contain});
 
   @override
-  State<ThaNativePlayerView> createState() => _ThaNativePlayerViewState();
+  State<RhsNativePlayerView> createState() => _RhsNativePlayerViewState();
 }
 
-class _ThaNativePlayerViewState extends State<ThaNativePlayerView> {
+class _RhsNativePlayerViewState extends State<RhsNativePlayerView> {
   @override
   Widget build(BuildContext context) {
-    const viewType = 'thaplayer/native_view';
+    const viewType = 'rhsplayer/native_view';
     final creationParams = widget.controller.creationParams;
 
     Widget platformView;
@@ -41,17 +36,14 @@ class _ThaNativePlayerViewState extends State<ThaNativePlayerView> {
           );
         },
         onCreatePlatformView: (params) {
-          final controller = services
-              .PlatformViewsService.initSurfaceAndroidView(
+          final controller = services.PlatformViewsService.initSurfaceAndroidView(
             id: params.id,
             viewType: viewType,
             layoutDirection: TextDirection.ltr,
             creationParams: creationParams,
             creationParamsCodec: const services.StandardMessageCodec(),
           );
-          controller.addOnPlatformViewCreatedListener(
-            params.onPlatformViewCreated,
-          );
+          controller.addOnPlatformViewCreatedListener(params.onPlatformViewCreated);
           controller.addOnPlatformViewCreatedListener((id) {
             widget.controller.attachViewId(id);
             widget.controller.setBoxFit(widget.boxFit);
@@ -77,14 +69,13 @@ class _ThaNativePlayerViewState extends State<ThaNativePlayerView> {
     return Stack(
       children: [
         Positioned.fill(child: platformView),
-        if (widget.overlay != null)
-          Positioned(top: 12, right: 12, child: widget.overlay!),
+        if (widget.overlay != null) Positioned(top: 12, right: 12, child: widget.overlay!),
       ],
     );
   }
 
   @override
-  void didUpdateWidget(covariant ThaNativePlayerView oldWidget) {
+  void didUpdateWidget(covariant RhsNativePlayerView oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.boxFit != widget.boxFit) {
       widget.controller.setBoxFit(widget.boxFit);

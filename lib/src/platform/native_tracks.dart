@@ -1,5 +1,5 @@
 /// Metadata describing a selectable video track exposed by the native player.
-class ThaVideoTrack {
+class RhsVideoTrack {
   final String id;
   final String? label;
   final int? bitrate;
@@ -7,7 +7,7 @@ class ThaVideoTrack {
   final int? height;
   final bool selected;
 
-  const ThaVideoTrack({
+  const RhsVideoTrack({
     required this.id,
     required this.label,
     required this.bitrate,
@@ -16,7 +16,7 @@ class ThaVideoTrack {
     required this.selected,
   });
 
-  factory ThaVideoTrack.fromMap(Map<dynamic, dynamic> map) {
+  factory RhsVideoTrack.fromMap(Map<dynamic, dynamic> map) {
     // ignore: no_leading_underscores_for_local_identifiers
     int? _int(dynamic v) {
       if (v == null) return null;
@@ -25,7 +25,7 @@ class ThaVideoTrack {
       return int.tryParse(v.toString());
     }
 
-    return ThaVideoTrack(
+    return RhsVideoTrack(
       id: map['id']?.toString() ?? '',
       label: map['label']?.toString(),
       bitrate: _int(map['bitrate']),
@@ -72,20 +72,15 @@ class ThaVideoTrack {
 }
 
 /// Metadata for an audio track the user can switch to.
-class ThaAudioTrack {
+class RhsAudioTrack {
   final String id;
   final String? label;
   final String? language;
   final bool selected;
 
-  const ThaAudioTrack({
-    required this.id,
-    this.label,
-    this.language,
-    required this.selected,
-  });
+  const RhsAudioTrack({required this.id, this.label, this.language, required this.selected});
 
-  factory ThaAudioTrack.fromMap(Map<dynamic, dynamic> map) => ThaAudioTrack(
+  factory RhsAudioTrack.fromMap(Map<dynamic, dynamic> map) => RhsAudioTrack(
     id: map['id']?.toString() ?? '',
     label: map['label']?.toString(),
     language: map['language']?.toString(),
@@ -94,27 +89,20 @@ class ThaAudioTrack {
 }
 
 /// Metadata for closed captions / subtitle tracks.
-class ThaSubtitleTrack {
+class RhsSubtitleTrack {
   final String id;
   final String? label;
   final String? language;
   final bool selected;
   final bool isForced;
 
-  const ThaSubtitleTrack({
-    required this.id,
-    this.label,
-    this.language,
-    required this.selected,
-    this.isForced = false,
-  });
+  const RhsSubtitleTrack({required this.id, this.label, this.language, required this.selected, this.isForced = false});
 
-  factory ThaSubtitleTrack.fromMap(Map<dynamic, dynamic> map) =>
-      ThaSubtitleTrack(
-        id: map['id']?.toString() ?? '',
-        label: map['label']?.toString(),
-        language: map['language']?.toString(),
-        selected: map['selected'] == true,
-        isForced: map['forced'] == true,
-      );
+  factory RhsSubtitleTrack.fromMap(Map<dynamic, dynamic> map) => RhsSubtitleTrack(
+    id: map['id']?.toString() ?? '',
+    label: map['label']?.toString(),
+    language: map['language']?.toString(),
+    selected: map['selected'] == true,
+    isForced: map['forced'] == true,
+  );
 }

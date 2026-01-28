@@ -5,40 +5,28 @@ import '../platform/native_player_controller.dart';
 import 'modern_player.dart';
 
 /// Fullscreen route that reuses the underlying controller.
-class ThaNativeFullscreenPage extends StatefulWidget {
-  final ThaNativePlayerController controller;
+class RhsNativeFullscreenPage extends StatefulWidget {
+  final RhsNativePlayerController controller;
   final ValueNotifier<BoxFit> boxFitNotifier;
   final Widget? overlay;
 
-  const ThaNativeFullscreenPage({
-    super.key,
-    required this.controller,
-    required this.boxFitNotifier,
-    this.overlay,
-  });
+  const RhsNativeFullscreenPage({super.key, required this.controller, required this.boxFitNotifier, this.overlay});
 
   @override
-  State<ThaNativeFullscreenPage> createState() =>
-      _ThaNativeFullscreenPageState();
+  State<RhsNativeFullscreenPage> createState() => _RhsNativeFullscreenPageState();
 }
 
-class _ThaNativeFullscreenPageState extends State<ThaNativeFullscreenPage> {
+class _RhsNativeFullscreenPageState extends State<RhsNativeFullscreenPage> {
   @override
   void initState() {
     super.initState();
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.landscapeLeft,
-      DeviceOrientation.landscapeRight,
-    ]);
+    SystemChrome.setPreferredOrientations([DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   }
 
   @override
   void dispose() {
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.portraitUp,
-      DeviceOrientation.portraitDown,
-    ]);
+    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp, DeviceOrientation.portraitDown]);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
   }
@@ -52,7 +40,7 @@ class _ThaNativeFullscreenPageState extends State<ThaNativeFullscreenPage> {
         bottom: false,
         left: false,
         right: false,
-        child: ThaModernPlayer(
+        child: RhsModernPlayer(
           controller: widget.controller,
           overlay: widget.overlay,
           isFullscreen: true,

@@ -3,7 +3,7 @@ import UIKit
 import XCTest
 
 
-@testable import tha_player
+@testable import rhs_player
 
 // This demonstrates a simple unit test of the Swift portion of this plugin's implementation.
 //
@@ -12,7 +12,7 @@ import XCTest
 class RunnerTests: XCTestCase {
 
   func testGetPlatformVersion() {
-    let plugin = ThaPlayerPlugin()
+    let plugin = RhsPlayerPlugin()
 
     let call = FlutterMethodCall(methodName: "getPlatformVersion", arguments: [])
 

@@ -4,7 +4,7 @@
         android:required="false" />
     <uses-permission android:name="android.permission.INTERNET" />
     <application
-        android:label="tha_player_example"
+        android:label="rhs_player_example"
         android:name="${applicationName}"
         android:usesCleartextTraffic="true"
         android:icon="@mipmap/ic_launcher">

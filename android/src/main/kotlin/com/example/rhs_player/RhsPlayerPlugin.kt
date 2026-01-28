@@ -1,4 +1,4 @@
-package com.example.tha_player
+package com.example.rhs_player
 
 import android.app.Activity
 import android.content.Context
@@ -13,7 +13,7 @@ import io.flutter.plugin.common.StandardMessageCodec
 import okhttp3.OkHttpClient
 import java.lang.ref.WeakReference
 
-class ThaPlayerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware {
+class RhsPlayerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware {
   private lateinit var channel: MethodChannel
   private lateinit var context: Context
   private var activity: Activity? = null
@@ -24,7 +24,7 @@ class ThaPlayerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, Activity
 
     @JvmStatic
     fun setHttpClientFactory(factory: (() -> OkHttpClient)?) {
-      ThaPlayerHttpClientProvider.setFactory(factory)
+      RhsPlayerHttpClientProvider.setFactory(factory)
     }
 
     @JvmStatic
@@ -32,14 +32,14 @@ class ThaPlayerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, Activity
   }
 
   override fun onAttachedToEngine(@NonNull binding: FlutterPlugin.FlutterPluginBinding) {
-    channel = MethodChannel(binding.binaryMessenger, "thaplayer/channel")
+    channel = MethodChannel(binding.binaryMessenger, "rhsplayer/channel")
     context = binding.applicationContext
     channel.setMethodCallHandler(this)
 
     // Register platform view for native player surface
     binding.platformViewRegistry.registerViewFactory(
-      "thaplayer/native_view",
-      ThaPlayerViewFactory(binding.binaryMessenger, context)
+      "rhsplayer/native_view",
+      RhsPlayerViewFactory(binding.binaryMessenger, context)
     )
   }
 

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:tha_player_example/player_screen.dart';
+import 'package:rhs_player_example/player_screen.dart';
 
 //to add
 // - current selected boxFit
@@ -14,11 +14,7 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Tha_player Example',
-      home: HomePage(),
-      debugShowCheckedModeBanner: false,
-    );
+    return MaterialApp(title: 'Rhs_player Example', home: HomePage(), debugShowCheckedModeBanner: false);
   }
 }
 
@@ -37,7 +33,7 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('tha_player')),
+      appBar: AppBar(title: Text('rhs_player')),
       body: Padding(
         padding: const EdgeInsets.all(8.0),
         child: Column(
@@ -66,12 +62,8 @@ class _HomePageState extends State<HomePage> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder:
-                        (c) => PlayerScreen(
-                          url: controller.text,
-                          isLive: _isLive,
-                          autoFullscreen: _autoFullscreen,
-                        ),
+                    builder: (c) =>
+                        PlayerScreen(url: controller.text, isLive: _isLive, autoFullscreen: _autoFullscreen),
                   ),
                 );
               },

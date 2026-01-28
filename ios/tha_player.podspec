@@ -1,16 +1,16 @@
 #
 # To learn more about a Podspec see http://guides.cocoapods.org/syntax/podspec.html.
-# Run `pod lib lint tha_player.podspec` to validate before publishing.
+# Run `pod lib lint rhs_player.podspec` to validate before publishing.
 #
 Pod::Spec.new do |s|
-  s.name             = 'tha_player'
+  s.name             = 'rhs_player'
   s.version          = '0.2.0'
   s.summary          = 'Powerful network-only player for Flutter (ExoPlayer on Android, AVPlayer on iOS).'
   s.description      = <<-DESC
 Unified network player with M3U playlists, MKV/HLS/DASH, 4K.
 Uses ExoPlayer on Android and AVPlayer on iOS.
                        DESC
-  s.homepage         = 'https://github.com/thethtwe-dev/tha_player'
+  s.homepage         = 'https://github.com/unger1984/rhs_player'
   s.license          = { :file => '../LICENSE' }
   s.author           = { 'Your Company' => 'email@example.com' }
   s.source           = { :path => '.' }
@@ -27,5 +27,5 @@ Uses ExoPlayer on Android and AVPlayer on iOS.
   # required reason APIs, update the PrivacyInfo.xcprivacy file to describe your
   # plugin's privacy impact, and then uncomment this line. For more information,
   # see https://developer.apple.com/documentation/bundleresources/privacy_manifest_files
-  # s.resource_bundles = {'tha_player_privacy' => ['Resources/PrivacyInfo.xcprivacy']}
+  # s.resource_bundles = {'rhs_player_privacy' => ['Resources/PrivacyInfo.xcprivacy']}
 end

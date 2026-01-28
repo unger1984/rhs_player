@@ -1,3 +1,7 @@
+## 0.5.0
+
+- Project renamed to rhs_player
+
 ## 0.4.1
 
 - Modern player quick actions now sit in a tidy wrap along the top-left, keeping the progress and transport controls anchored to the bottom without overlap
@@ -34,6 +38,7 @@
 - BoxFit control
 - Overlay support
 - Fullscreen support
+
 ## 0.2.0
 
 - Native engines: ExoPlayer (Android) and AVPlayer (iOS) via platform views

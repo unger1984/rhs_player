@@ -1,4 +1,4 @@
-package com.example.tha_player
+package com.example.rhs_player
 
 import okhttp3.OkHttpClient
 
@@ -7,7 +7,7 @@ import okhttp3.OkHttpClient
  * connection pools/warm DNS and allows host apps to inject a custom client with
  * interceptors, cache, etc. while staying within the 16 KB page-size limit.
  */
-object ThaPlayerHttpClientProvider {
+object RhsPlayerHttpClientProvider {
   @Volatile
   private var factory: (() -> OkHttpClient)? = null
 

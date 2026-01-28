@@ -1,4 +1,4 @@
-# tha_player example
+# rhs_player example
 
 This example shows how to use the native player with modern controls.
 
@@ -12,8 +12,8 @@ flutter run
 ## Quick Start Snippet
 
 ```
-final ctrl = ThaNativePlayerController.single(
-  ThaMediaSource(
+final ctrl = RhsNativePlayerController.single(
+  RhsMediaSource(
     'https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
     // thumbnailVttUrl: 'https://example.com/thumbs.vtt',
   ),
@@ -22,7 +22,7 @@ final ctrl = ThaNativePlayerController.single(
 
 AspectRatio(
   aspectRatio: 16 / 9,
-  child: ThaModernPlayer(
+  child: RhsModernPlayer(
     controller: ctrl,
     doubleTapSeek: Duration(seconds: 10),
     autoHideAfter: Duration(seconds: 3),

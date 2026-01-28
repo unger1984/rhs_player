@@ -1,5 +1,5 @@
 /// Configuration options that influence playback resilience and buffering.
-class ThaPlaybackOptions {
+class RhsPlaybackOptions {
   /// Maximum automatic retry attempts before surfacing a failure. `-1`
   /// indicates unlimited retries.
   final int maxRetryCount;
@@ -17,7 +17,7 @@ class ThaPlaybackOptions {
   /// Optional timeout to rebuffer before considering playback stalled.
   final Duration? rebufferTimeout;
 
-  const ThaPlaybackOptions({
+  const RhsPlaybackOptions({
     this.maxRetryCount = 3,
     this.initialRetryDelay = const Duration(seconds: 1),
     this.maxRetryDelay = const Duration(seconds: 10),

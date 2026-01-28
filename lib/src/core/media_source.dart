@@ -1,7 +1,7 @@
 import 'drm.dart';
 
 /// Definition of a single media item for the native player.
-class ThaMediaSource {
+class RhsMediaSource {
   /// Stream URL or manifest (HLS/DASH/MP4/etc).
   final String url;
 
@@ -12,7 +12,7 @@ class ThaMediaSource {
   final bool isLive;
 
   /// DRM configuration for the item.
-  final ThaDrmConfig drm;
+  final RhsDrmConfig drm;
 
   /// Optional VTT sprite sheet used to render seek thumbnails.
   final String? thumbnailVttUrl;
@@ -21,11 +21,11 @@ class ThaMediaSource {
   final Map<String, String>? thumbnailHeaders;
 
   /// Creates a media source definition.
-  const ThaMediaSource(
+  const RhsMediaSource(
     this.url, {
     this.headers,
     this.isLive = false,
-    this.drm = const ThaDrmConfig(type: ThaDrmType.none),
+    this.drm = const RhsDrmConfig(type: RhsDrmType.none),
     this.thumbnailVttUrl,
     this.thumbnailHeaders,
   });

@@ -7,6 +7,7 @@ import '../core/media_source.dart';
 import '../core/drm.dart';
 import 'native_events.dart';
 import 'native_tracks.dart';
+import 'native_tracks_events.dart';
 import 'playback_options.dart';
 
 /// Мост между Flutter и нативной реализацией плеера.
@@ -37,6 +38,12 @@ class RhsPlayerController {
 
   /// Обработчик событий нативного плеера
   RhsNativeEvents? _events;
+
+  /// Обработчик событий треков от ExoPlayer
+  RhsNativeTracks? _tracks;
+
+  /// Последний выбранный трек видео (для сохранения при пересоздании виджетов)
+  String? _selectedVideoTrackId;
 
   /// Позиция возобновления воспроизведения в миллисекундах
   int _resumePositionMs = 0;
@@ -123,10 +130,19 @@ class RhsPlayerController {
       _errorController?.close();
       _events!.dispose();
     }
+    if (_tracks != null) {
+      _tracks!.dispose();
+    }
+
     final ev = RhsNativeEvents(id);
     ev.start();
     _events = ev;
     _eventsSubject.add(ev);
+
+    // Инициализируем слушатель треков
+    final tracks = RhsNativeTracks(id);
+    tracks.start();
+    _tracks = tracks;
 
     // Подписываемся на изменения состояния
     _stateSubscription = _listenToStateNotifier(ev.state).listen((state) {
@@ -225,13 +241,17 @@ class RhsPlayerController {
 
   /// Выбирает конкретную видео дорожку по [trackId].
   Future<void> selectVideoTrack(String trackId) async {
+    print('[RhsPlayerController] selectVideoTrack called with: $trackId');
+    _selectedVideoTrackId = trackId; // Сохраняем выбранный трек
     await _invoke('setVideoTrack', {'id': trackId});
+    print('[RhsPlayerController] setVideoTrack invoke completed');
     // Уведомляем слушателей об изменении дорожек
     _tracksSubject.add(null);
   }
 
   /// Очищает ручные переопределения дорожек и возвращается к автоматическому выбору.
   Future<void> clearVideoTrackSelection() async {
+    _selectedVideoTrackId = null; // Сбрасываем сохраненный трек
     await _invoke('setVideoTrack', {'id': null});
     // Уведомляем слушателей об изменении дорожек
     _tracksSubject.add(null);
@@ -299,10 +319,17 @@ class RhsPlayerController {
     await _tracksSubject.close();
     await _errorSubject.close();
     await _eventsSubject.close();
+    _tracks?.dispose();
   }
 
   /// События воспроизведения, генерируемые нативным слоем (для обратной совместимости).
   RhsNativeEvents? get events => _events;
+
+  /// Список видео треков, обновляемый автоматически от ExoPlayer
+  ValueNotifier<List<RhsVideoTrack>>? get videoTracks => _tracks?.videoTracks;
+
+  /// Последний выбранный ID трека видео (для восстановления состояния после пересоздания виджета)
+  String? get selectedVideoTrackId => _selectedVideoTrackId;
 
   /// Stream прогресса воспроизведения
   Stream<Duration> get progressStream => _progressSubject.stream;

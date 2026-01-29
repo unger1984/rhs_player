@@ -1,9 +1,8 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:rhs_player/rhs_player.dart';
 
-// ignore: avoid_relative_lib_imports
-
+/// Кнопка выбора качества видео
+/// Подписывается на события треков от контроллера
 class QualityButton extends StatefulWidget {
   final RhsPlayerController controller;
   final VoidCallback? onControlsShow;
@@ -15,135 +14,178 @@ class QualityButton extends StatefulWidget {
 }
 
 class _QualityButtonState extends State<QualityButton> {
-  List<RhsVideoTrack> _videoTracks = const <RhsVideoTrack>[];
-  String? _manualTrackId;
-  bool _dataSaver = false;
-  Future<void>? _pendingTrackFetch;
+  List<RhsVideoTrack> _tracks = [];
+  String? _selectedTrackId;
 
-  Future<void> _refreshVideoTracks() async {
-    if (_pendingTrackFetch != null) return;
-    _pendingTrackFetch = widget.controller
-        .getVideoTracks()
-        .then((tracks) {
-          if (!mounted) return;
-          setState(() {
-            _videoTracks = tracks;
-            if (_manualTrackId != null && tracks.every((t) => t.id != _manualTrackId)) {
-              _manualTrackId = null;
-            }
-          });
-        })
-        .catchError((e) {
-          print('[Quality] Error loading tracks: $e');
-        })
-        .whenComplete(() {
-          _pendingTrackFetch = null;
-        });
+  @override
+  void initState() {
+    super.initState();
+    _setupTracksListener();
   }
 
-  Future<void> _onQualitySelected(String value) async {
-    switch (value) {
-      case 'auto':
-        setState(() {
-          _dataSaver = false;
-          _manualTrackId = null;
-        });
-        await widget.controller.setDataSaver(false);
-        await widget.controller.clearVideoTrackSelection();
-        break;
-      case 'dataSaver':
-        setState(() {
-          _dataSaver = true;
-          _manualTrackId = null;
-        });
-        await widget.controller.setDataSaver(true);
-        await widget.controller.clearVideoTrackSelection();
-        break;
-      default:
-        setState(() {
-          _dataSaver = false;
-          _manualTrackId = value;
-        });
-        await widget.controller.setDataSaver(false);
-        await widget.controller.selectVideoTrack(value);
-        break;
+  /// Настройка слушателя треков от контроллера
+  void _setupTracksListener() {
+    final videoTracks = widget.controller.videoTracks;
+    if (videoTracks != null) {
+      // Подписываемся на изменения треков
+      videoTracks.addListener(_onTracksChanged);
+      // Инициализируем текущее значение
+      _onTracksChanged();
     }
-    widget.onControlsShow?.call();
   }
 
-  IconData get _qualityIcon {
-    if (_dataSaver) return Icons.data_saver_on;
-    if (_manualTrackId != null) return Icons.high_quality;
-    return Icons.hd;
+  @override
+  void dispose() {
+    widget.controller.videoTracks?.removeListener(_onTracksChanged);
+    super.dispose();
   }
 
-  Widget _qualityMenuRow({required String label, bool selected = false}) {
-    return Row(
-      children: [
-        if (selected) const Icon(Icons.check, size: 18, color: Colors.white) else const SizedBox(width: 18),
-        const SizedBox(width: 8),
-        Text(label, style: const TextStyle(color: Colors.white)),
-      ],
-    );
-  }
+  /// Обработка изменения треков от нативного плеера
+  void _onTracksChanged() {
+    if (!mounted) return;
 
-  List<PopupMenuEntry<String>> _qualityPopupItems(BuildContext context) {
-    final items = <PopupMenuEntry<String>>[];
-    items.add(
-      PopupMenuItem(
-        value: 'auto',
-        child: _qualityMenuRow(label: 'Auto', selected: !_dataSaver && _manualTrackId == null),
-      ),
-    );
-    items.add(
-      PopupMenuItem(
-        value: 'dataSaver',
-        child: _qualityMenuRow(label: 'Data Saver', selected: _dataSaver),
-      ),
-    );
-    if (_videoTracks.isNotEmpty) {
-      final sorted = [..._videoTracks]..sort((a, b) => (b.bitrate ?? 0).compareTo(a.bitrate ?? 0));
-      items.add(const PopupMenuDivider());
-      for (final track in sorted) {
-        items.add(
-          PopupMenuItem(
-            value: track.id,
-            child: _qualityMenuRow(label: track.displayLabel, selected: _manualTrackId == track.id),
-          ),
-        );
+    final videoTracks = widget.controller.videoTracks;
+    if (videoTracks == null) return;
+
+    // Получаем свежий список треков от ExoPlayer
+    final tracks = videoTracks.value;
+
+    setState(() {
+      _tracks = tracks;
+
+      // Восстанавливаем выбранный трек из контроллера (если виджет пересоздавался)
+      if (_selectedTrackId == null) {
+        final savedTrackId = widget.controller.selectedVideoTrackId;
+        if (savedTrackId != null) {
+          // Восстанавливаем ранее выбранный трек
+          _selectedTrackId = savedTrackId;
+        } else if (tracks.isNotEmpty) {
+          // Если еще никогда не выбирали - выбираем первый (обычно это максимальное качество)
+          _selectedTrackId = tracks.first.id;
+        }
       }
-    } else if (_pendingTrackFetch != null) {
-      items.add(
+    });
+  }
+
+  /// Текст для отображения на кнопке
+  String get _buttonText {
+    // Используем _selectedTrackId чтобы найти трек и показать его качество
+    if (_selectedTrackId != null && _tracks.isNotEmpty) {
+      try {
+        final track = _tracks.firstWhere((t) => t.id == _selectedTrackId);
+        return track.qualityLabel;
+      } catch (e) {
+        // Если трек не найден, показываем качество первого трека
+        return _tracks.first.qualityLabel;
+      }
+    }
+    return 'HD';
+  }
+
+  /// Обработка выбора качества
+  Future<void> _onQualitySelected(String trackId) async {
+    print('[QualityButton] _onQualitySelected called with: $trackId');
+    print('[QualityButton] Current selected: $_selectedTrackId');
+
+    // Убрал проверку на дубликаты - позволяем переключать даже если тот же трек
+    // if (_selectedTrackId == trackId) {
+    //   print('[QualityButton] Same track, skipping');
+    //   return;
+    // }
+
+    // Обновляем UI немедленно, но только если виджет еще mounted
+    if (mounted) {
+      setState(() {
+        _selectedTrackId = trackId;
+      });
+    }
+
+    try {
+      print('[QualityButton] Calling controller.selectVideoTrack...');
+      await widget.controller.selectVideoTrack(trackId);
+      print('[QualityButton] controller.selectVideoTrack completed');
+      if (mounted) {
+        widget.onControlsShow?.call();
+      }
+    } catch (e) {
+      print('[QualityButton] ERROR selecting track: $e');
+      debugPrint('[QualityButton] Error selecting track: $e');
+    }
+  }
+
+  /// Построение строки меню
+  Widget _buildMenuRow({required String label, required bool isSelected}) {
+    return SizedBox(
+      width: 120,
+      child: Row(
+        children: [
+          SizedBox(
+            width: 24,
+            child: isSelected ? const Icon(Icons.check, size: 18, color: Colors.white) : const SizedBox(),
+          ),
+          Expanded(
+            child: Text(label, style: const TextStyle(color: Colors.white, fontSize: 14)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Построение элементов меню
+  List<PopupMenuEntry<String>> _buildMenuItems(BuildContext context) {
+    if (_tracks.isEmpty) {
+      return [
         const PopupMenuItem<String>(
           enabled: false,
-          value: '__loading__',
-          child: Text('Loading variants...', style: TextStyle(color: Colors.white70)),
+          value: '',
+          child: Text('No quality options available', style: TextStyle(color: Colors.white70)),
         ),
-      );
-    } else {
+      ];
+    }
+
+    // Сортируем треки по битрейту (от большего к меньшему)
+    final sortedTracks = List<RhsVideoTrack>.from(_tracks)..sort((a, b) => (b.bitrate ?? 0).compareTo(a.bitrate ?? 0));
+
+    final items = <PopupMenuEntry<String>>[];
+
+    for (final track in sortedTracks) {
+      final isSelected = _selectedTrackId == track.id;
+
       items.add(
-        const PopupMenuItem<String>(
-          enabled: false,
-          value: '__empty__',
-          child: Text('No variants reported', style: TextStyle(color: Colors.white70)),
+        PopupMenuItem<String>(
+          value: track.id,
+          onTap: () {
+            // Используем onTap вместо onSelected для более надежной обработки
+            Future.microtask(() => _onQualitySelected(track.id));
+          },
+          child: _buildMenuRow(label: track.qualityLabel, isSelected: isSelected),
         ),
       );
     }
+
     return items;
   }
 
   @override
   Widget build(BuildContext context) {
+    // Не показываем кнопку пока не загружены треки и не определен выбранный трек
+    if (_tracks.isEmpty || _selectedTrackId == null) {
+      return const SizedBox.shrink();
+    }
+
     return PopupMenuButton<String>(
-      tooltip: 'Quality',
+      tooltip: 'Video Quality',
       color: const Color(0xFF1F1F1F),
       surfaceTintColor: Colors.transparent,
       padding: EdgeInsets.zero,
       position: PopupMenuPosition.over,
-      onOpened: () => _refreshVideoTracks(),
-      onSelected: (v) => unawaited(_onQualitySelected(v)),
-      itemBuilder: (context) => _qualityPopupItems(context),
-      child: IconButton(icon: Icon(_qualityIcon, color: Colors.white, size: 32), onPressed: null),
+      itemBuilder: (context) => _buildMenuItems(context),
+      child: Center(
+        child: Text(
+          _buttonText,
+          style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+        ),
+      ),
     );
   }
 }

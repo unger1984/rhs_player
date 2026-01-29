@@ -2,19 +2,19 @@
 class RhsVideoTrack {
   /// Идентификатор дорожки
   final String id;
-  
+
   /// Метка дорожки
   final String? label;
-  
+
   /// Битрейт дорожки
   final int? bitrate;
-  
+
   /// Ширина видео
   final int? width;
-  
+
   /// Высота видео
   final int? height;
-  
+
   /// Флаг выбранной дорожки
   final bool selected;
 
@@ -73,6 +73,24 @@ class RhsVideoTrack {
     return '${height}p';
   }
 
+  /// Получает короткое название качества для отображения на кнопке (1080p, 720p, 360p и т.д.)
+  String get qualityLabel {
+    if (height != null && height! > 0) {
+      return '${height}p';
+    }
+    if (label != null && label!.trim().isNotEmpty) {
+      return label!.trim();
+    }
+    // Пытаемся определить по битрейту
+    if (bitrate != null && bitrate! > 0) {
+      if (bitrate! >= 5000000) return '1080p';
+      if (bitrate! >= 2500000) return '720p';
+      if (bitrate! >= 1000000) return '480p';
+      return '360p';
+    }
+    return 'HD';
+  }
+
   /// Получает метку битрейта
   String? get _bitrateLabel {
     final br = bitrate;
@@ -90,13 +108,13 @@ class RhsVideoTrack {
 class RhsAudioTrack {
   /// Идентификатор дорожки
   final String id;
-  
+
   /// Метка дорожки
   final String? label;
-  
+
   /// Язык дорожки
   final String? language;
-  
+
   /// Флаг выбранной дорожки
   final bool selected;
 
@@ -115,16 +133,16 @@ class RhsAudioTrack {
 class RhsSubtitleTrack {
   /// Идентификатор дорожки
   final String id;
-  
+
   /// Метка дорожки
   final String? label;
-  
+
   /// Язык дорожки
   final String? language;
-  
+
   /// Флаг выбранной дорожки
   final bool selected;
-  
+
   /// Флаг принудительных субтитров
   final bool isForced;
 

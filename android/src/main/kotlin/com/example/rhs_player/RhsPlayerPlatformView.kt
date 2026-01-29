@@ -49,8 +49,10 @@ class RhsPlayerPlatformView(
   private val playerView: PlayerView = PlayerView(context)
   private val channel: MethodChannel = MethodChannel(messenger, "rhsplayer/view_${viewId}")
   private val eventChannel: EventChannel = EventChannel(messenger, "rhsplayer/events_${viewId}")
+  private val tracksEventChannel: EventChannel = EventChannel(messenger, "rhsplayer/tracks_${viewId}")
   private val mainHandler = Handler(Looper.getMainLooper())
   private var eventsSink: EventChannel.EventSink? = null
+  private var tracksEventsSink: EventChannel.EventSink? = null
   private var progressRunnable: Runnable? = null
   private val controllerId: Long =
     (args?.get("controllerId") as? Number)?.toLong() ?: viewId.toLong()
@@ -242,6 +244,14 @@ class RhsPlayerPlatformView(
         restoreAudio()
         maybeStartPlayback()
       }
+
+      override fun onTracksChanged(tracks: Tracks) {
+        // ExoPlayer уведомляет об изменении треков
+        // Отправляем обновленный список во Flutter
+        mainHandler.post {
+          sendTracksEvent()
+        }
+      }
     })
 
     eventChannel.setStreamHandler(object: EventChannel.StreamHandler {
@@ -252,6 +262,17 @@ class RhsPlayerPlatformView(
       override fun onCancel(arguments: Any?) {
         stopProgress()
         eventsSink = null
+      }
+    })
+
+    tracksEventChannel.setStreamHandler(object: EventChannel.StreamHandler {
+      override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+        tracksEventsSink = events
+        // Отправляем текущие треки сразу при подписке
+        sendTracksEvent()
+      }
+      override fun onCancel(arguments: Any?) {
+        tracksEventsSink = null
       }
     })
   }
@@ -358,27 +379,40 @@ class RhsPlayerPlatformView(
 
   private fun collectVideoTracks(): List<Map<String, Any?>> {
     val tracks = mutableListOf<Map<String, Any?>>()
-    val groups: List<Tracks.Group> = player.currentTracks.groups
-    groups.forEachIndexed { groupIndex, group ->
-      if (group.type != C.TRACK_TYPE_VIDEO) return@forEachIndexed
-      val trackGroup = group.mediaTrackGroup
-      for (trackIndex in 0 until trackGroup.length) {
-        val format = trackGroup.getFormat(trackIndex)
+    
+    for (trackGroup in player.currentTracks.groups) {
+      if (trackGroup.type != C.TRACK_TYPE_VIDEO) continue
+      if (!trackGroup.isSupported) continue
+      
+      val mediaTrackGroup = trackGroup.mediaTrackGroup
+      
+      for (i in 0 until trackGroup.length) {
+        if (!trackGroup.isTrackSupported(i)) continue
+        
+        val format = trackGroup.getTrackFormat(i)
+        
         val bitrate = if (format.bitrate != Format.NO_VALUE) format.bitrate else null
         val width = if (format.width != Format.NO_VALUE) format.width else null
         val height = if (format.height != Format.NO_VALUE) format.height else null
+        
+        // Используем характеристики для ID
+        val trackId = "${height ?: 0}:${width ?: 0}:${bitrate ?: 0}"
+        
+        // Для адаптивного стриминга просто возвращаем false
+        // Flutter сам определит какой трек выбран на основе последнего вызова selectVideoTrack
         tracks.add(
           mapOf(
-            "id" to "$groupIndex:$trackIndex",
+            "id" to trackId,
             "bitrate" to bitrate,
             "width" to width,
             "height" to height,
-            "label" to formatTrackLabel(format, width, height, bitrate, trackIndex),
-            "selected" to group.isTrackSelected(trackIndex)
+            "label" to formatTrackLabel(format, width, height, bitrate),
+            "selected" to false
           )
         )
       }
     }
+    
     return tracks
   }
 
@@ -387,57 +421,129 @@ class RhsPlayerPlatformView(
     width: Int?,
     height: Int?,
     bitrate: Int?,
-    trackIndex: Int,
   ): String {
     val parts = mutableListOf<String>()
-    val label = format.label
-    if (!label.isNullOrBlank()) {
-      parts.add(label)
-    }
+    
+    // Приоритет: высота (разрешение)
     if (height != null && height > 0) {
       parts.add("${height}p")
     }
-    val frameRate = format.frameRate
-    if (!frameRate.isNaN() && frameRate > 0f && frameRate != Format.NO_VALUE.toFloat()) {
-      parts.add(String.format(Locale.US, "%.0f fps", frameRate))
-    }
+    
+    // Добавляем битрейт если есть
     if (bitrate != null && bitrate > 0) {
       val mbps = bitrate / 1_000_000.0
       val pattern = if (mbps >= 10) "%.0f Mbps" else "%.1f Mbps"
       parts.add(String.format(Locale.US, pattern, mbps))
     }
-    if (parts.isEmpty()) {
-      parts.add("Track ${trackIndex + 1}")
+    
+    // Если есть label от формата, добавляем его
+    val label = format.label
+    if (!label.isNullOrBlank() && !parts.contains(label)) {
+      parts.add(label)
     }
+    
+    // Если ничего нет, используем дефолтное значение
+    if (parts.isEmpty()) {
+      parts.add("HD")
+    }
+    
     return parts.joinToString(" • ")
   }
 
   private fun selectVideoTrack(id: String?) {
-    val builder = player.trackSelectionParameters.buildUpon()
+    android.util.Log.d("RhsPlayer", "=== selectVideoTrack called with id: $id ===")
+    
+    // Очищаем выбор трека (возврат к автоматическому выбору)
     if (id.isNullOrEmpty()) {
-      builder.clearOverridesOfType(C.TRACK_TYPE_VIDEO)
-      player.trackSelectionParameters = builder.build()
+      android.util.Log.d("RhsPlayer", "Clearing all video track overrides")
+      player.trackSelectionParameters = player.trackSelectionParameters
+        .buildUpon()
+        .clearOverridesOfType(C.TRACK_TYPE_VIDEO)
+        .setMaxVideoSize(Int.MAX_VALUE, Int.MAX_VALUE)
+        .build()
       return
     }
 
+    // Парсим ID (формат: "height:width:bitrate")
     val parts = id.split(":")
-    if (parts.size != 2) return
-    val groupIndex = parts[0].toIntOrNull() ?: return
-    val trackIndex = parts[1].toIntOrNull() ?: return
+    if (parts.size != 3) {
+      android.util.Log.e("RhsPlayer", "ERROR: Invalid track ID format: $id")
+      return
+    }
+    
+    val targetHeight = parts[0].toIntOrNull() ?: 0
+    val targetWidth = parts[1].toIntOrNull() ?: 0
+    val targetBitrate = parts[2].toIntOrNull() ?: 0
+    
+    android.util.Log.d("RhsPlayer", "Target: ${targetHeight}x${targetWidth} @ ${targetBitrate} bps")
 
-    val groups = player.currentTracks.groups
-    if (groupIndex < 0 || groupIndex >= groups.size) return
-    val group = groups[groupIndex]
-    val trackGroup = group.mediaTrackGroup
-    if (trackIndex < 0 || trackIndex >= trackGroup.length) return
+    // Получаем текущие треки
+    val currentTracks = player.currentTracks
+    android.util.Log.d("RhsPlayer", "Total track groups: ${currentTracks.groups.size}")
+    
+    // Ищем нужный трек по характеристикам
+    for ((groupIdx, trackGroup) in currentTracks.groups.withIndex()) {
+      if (trackGroup.type != C.TRACK_TYPE_VIDEO) continue
+      if (!trackGroup.isSupported) continue
+      
+      val mediaTrackGroup = trackGroup.mediaTrackGroup
+      android.util.Log.d("RhsPlayer", "Video group $groupIdx: ${trackGroup.length} tracks, type=${trackGroup.type}")
+      
+      for (i in 0 until trackGroup.length) {
+        if (!trackGroup.isTrackSupported(i)) continue
+        
+        val format = trackGroup.getTrackFormat(i)
+        val height = if (format.height != Format.NO_VALUE) format.height else 0
+        val width = if (format.width != Format.NO_VALUE) format.width else 0
+        val bitrate = if (format.bitrate != Format.NO_VALUE) format.bitrate else 0
+        val selected = trackGroup.isTrackSelected(i)
+        
+        android.util.Log.d("RhsPlayer", "  [$i] ${height}x${width} @ $bitrate bps (selected=$selected)")
+        
+        if (height == targetHeight && width == targetWidth && bitrate == targetBitrate) {
+          android.util.Log.d("RhsPlayer", ">>> MATCH FOUND at group=$groupIdx, track=$i <<<")
+          
+          // Создаем override И ограничиваем размер
+          val override = TrackSelectionOverride(mediaTrackGroup, listOf(i))
+          
+          // Применяем override + ограничение размера (двойной подход)
+          player.trackSelectionParameters = player.trackSelectionParameters
+            .buildUpon()
+            .clearOverridesOfType(C.TRACK_TYPE_VIDEO)
+            .setMaxVideoSize(width, height)
+            .setMaxVideoBitrate(bitrate)
+            .setOverrideForType(override)
+            .build()
+          
+          android.util.Log.d("RhsPlayer", ">>> Override + max size applied (${width}x${height}, ${bitrate}bps) <<<")
+          
+          // Принудительно отправляем событие о треках
+          mainHandler.postDelayed({ 
+            android.util.Log.d("RhsPlayer", "Sending tracks event after 100ms")
+            sendTracksEvent() 
+          }, 100)
+          mainHandler.postDelayed({ 
+            android.util.Log.d("RhsPlayer", "Sending tracks event after 300ms")
+            sendTracksEvent() 
+          }, 300)
+          
+          return
+        }
+      }
+    }
+    
+    android.util.Log.e("RhsPlayer", "!!! ERROR: Track NOT FOUND !!!")
+  }
 
-    val override = TrackSelectionOverride(
-      trackGroup,
-      listOf(trackIndex)
-    )
-    builder.clearOverridesOfType(C.TRACK_TYPE_VIDEO)
-    builder.setOverrideForType(override)
-    player.trackSelectionParameters = builder.build()
+  /// Отправляет событие о текущих треках через EventChannel
+  private fun sendTracksEvent() {
+    val sink = tracksEventsSink ?: return
+    try {
+      val tracks = collectVideoTracks()
+      sink.success(tracks)
+    } catch (e: Exception) {
+      // Игнорируем ошибки при отправке событий
+    }
   }
 
   private fun collectAudioTracks(): List<Map<String, Any?>> {

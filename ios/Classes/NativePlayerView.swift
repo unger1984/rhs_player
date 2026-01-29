@@ -30,6 +30,7 @@ class NativePlayerView: NSObject, FlutterPlatformView {
   private var retryAttempts = 0
   private var retryWorkItem: DispatchWorkItem?
   private var isLooping: Bool = false
+  private var isFullscreen: Bool = false
 
   init(frame: CGRect, viewId: Int64, messenger: FlutterBinaryMessenger, params: [String: Any]?) {
     container = PlayerContainerView(frame: frame)
@@ -129,6 +130,8 @@ class NativePlayerView: NSObject, FlutterPlatformView {
           }
         }
         result(nil)
+      case "toggleFullscreen":
+        result(self.toggleFullscreen())
       case "dispose":
         self.dispose(); result(nil)
       default:
@@ -452,6 +455,21 @@ class NativePlayerView: NSObject, FlutterPlatformView {
     }
     retryWorkItem = work
     DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
+  }
+  
+  /**
+   * Переключает полноэкранный режим плеера
+   * @return true если переход в полноэкранный режим успешен, false в противном случае
+   */
+  private func toggleFullscreen() -> Bool {
+    isFullscreen = !isFullscreen
+    
+    // Отправляем событие изменения состояния полноэкранного режима в Flutter
+    eventSink?([
+      "isFullscreen": isFullscreen
+    ])
+    
+    return true
   }
 }
 

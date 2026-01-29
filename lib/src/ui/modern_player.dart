@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import '../platform/native_player_controller.dart';
-import '../platform/native_player_view.dart';
+import '../platform/player_controller.dart';
+import '../platform/player_view.dart';
 import '../platform/native_events.dart';
 import '../platform/native_tracks.dart';
 import '../utils/native_bridge.dart';
@@ -12,7 +12,7 @@ import '../utils/thumbnails.dart';
 /// с поддержкой жестов.
 class RhsModernPlayer extends StatefulWidget {
   /// Контроллер для управления воспроизведением
-  final RhsNativePlayerController controller;
+  final RhsPlayerController controller;
 
   /// Дополнительный оверлей, который будет отображаться поверх плеера
   final Widget? overlay;
@@ -811,7 +811,7 @@ class _RhsModernPlayerState extends State<RhsModernPlayer> {
             children: [
               ValueListenableBuilder<BoxFit>(
                 valueListenable: _fit,
-                builder: (_, fit, __) => RhsNativePlayerView(controller: widget.controller, boxFit: fit, overlay: null),
+                builder: (_, fit, __) => RhsPlayerView(controller: widget.controller, boxFit: fit),
               ),
               // Верхний прозрачный слой взаимодействия для обеспечения обнаружения нажатий в любом месте
               Positioned.fill(

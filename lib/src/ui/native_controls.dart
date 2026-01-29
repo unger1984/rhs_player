@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 
-import '../platform/native_player_controller.dart';
+import '../platform/player_controller.dart';
 import 'native_fullscreen.dart';
 
-/// Минимальная панель управления, которая передает команды непосредственно 
+/// Минимальная панель управления, которая передает команды непосредственно
 /// нативному плееру.
 class RhsNativeControls extends StatelessWidget {
   /// Контроллер для управления воспроизведением
-  final RhsNativePlayerController controller;
-  
+  final RhsPlayerController controller;
+
   /// Уведомитель режима масштабирования
   final ValueNotifier<BoxFit> boxFitNotifier;
-  
+
   /// Дополнительный оверлей, который будет отображаться поверх плеера
   final Widget? overlay;
 

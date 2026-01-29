@@ -4,27 +4,23 @@ import 'package:flutter/services.dart' as services;
 import 'package:flutter/rendering.dart' as rendering;
 import 'package:flutter/gestures.dart';
 
-import 'native_player_controller.dart';
+import 'player_controller.dart';
 
-/// Оборачивает нативное представление Android/iOS, которое отображает 
-/// поверхность видео.
-class RhsNativePlayerView extends StatefulWidget {
-  /// Контр롤ер для управления воспроизведением
-  final RhsNativePlayerController controller;
-  
-  /// Дополнительный оверлей, который будет отображаться поверх плеера
-  final Widget? overlay;
-  
+/// Отображает только видео текстуру без элементов управления и жестов.
+class RhsPlayerView extends StatefulWidget {
+  /// Контроллер для управления воспроизведением
+  final RhsPlayerController controller;
+
   /// Режим масштабирования видео
   final BoxFit boxFit;
 
-  const RhsNativePlayerView({super.key, required this.controller, this.overlay, this.boxFit = BoxFit.contain});
+  const RhsPlayerView({super.key, required this.controller, this.boxFit = BoxFit.contain});
 
   @override
-  State<RhsNativePlayerView> createState() => _RhsNativePlayerViewState();
+  State<RhsPlayerView> createState() => _RhsPlayerViewState();
 }
 
-class _RhsNativePlayerViewState extends State<RhsNativePlayerView> {
+class _RhsPlayerViewState extends State<RhsPlayerView> {
   @override
   Widget build(BuildContext context) {
     const viewType = 'rhsplayer/native_view';
@@ -72,16 +68,11 @@ class _RhsNativePlayerViewState extends State<RhsNativePlayerView> {
       platformView = const SizedBox.shrink();
     }
 
-    return Stack(
-      children: [
-        Positioned.fill(child: platformView),
-        if (widget.overlay != null) Positioned(top: 12, right: 12, child: widget.overlay!),
-      ],
-    );
+    return platformView;
   }
 
   @override
-  void didUpdateWidget(covariant RhsNativePlayerView oldWidget) {
+  void didUpdateWidget(covariant RhsPlayerView oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.boxFit != widget.boxFit) {
       widget.controller.setBoxFit(widget.boxFit);

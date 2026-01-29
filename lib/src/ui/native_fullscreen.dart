@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../platform/native_player_controller.dart';
+import '../platform/player_controller.dart';
 import 'modern_player.dart';
 
 /// Полноэкранная страница, которая повторно использует базовый контроллер.
 class RhsNativeFullscreenPage extends StatefulWidget {
   /// Контроллер для управления воспроизведением
-  final RhsNativePlayerController controller;
-  
+  final RhsPlayerController controller;
+
   /// Уведомитель режима масштабирования
   final ValueNotifier<BoxFit> boxFitNotifier;
-  
+
   /// Дополнительный оверлей, который будет отображаться поверх плеера
   final Widget? overlay;
 

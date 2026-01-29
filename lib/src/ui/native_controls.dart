@@ -3,10 +3,16 @@ import 'package:flutter/material.dart';
 import '../platform/native_player_controller.dart';
 import 'native_fullscreen.dart';
 
-/// Minimal control bar that forwards commands straight to the native player.
+/// Минимальная панель управления, которая передает команды непосредственно 
+/// нативному плееру.
 class RhsNativeControls extends StatelessWidget {
+  /// Контроллер для управления воспроизведением
   final RhsNativePlayerController controller;
+  
+  /// Уведомитель режима масштабирования
   final ValueNotifier<BoxFit> boxFitNotifier;
+  
+  /// Дополнительный оверлей, который будет отображаться поверх плеера
   final Widget? overlay;
 
   const RhsNativeControls({super.key, required this.controller, required this.boxFitNotifier, this.overlay});
@@ -56,6 +62,7 @@ class RhsNativeControls extends StatelessWidget {
     );
   }
 
+  /// Создает элемент меню выбора режима масштабирования
   PopupMenuItem<BoxFit> _fitItem(String label, BoxFit value, BoxFit selected) {
     return PopupMenuItem(
       value: value,

@@ -2,10 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:rhs_player/rhs_player.dart';
 
 class PlayerScreen extends StatefulWidget {
-  final String url;
   final bool isLive;
   final bool autoFullscreen;
-  const PlayerScreen({super.key, required this.url, this.isLive = false, this.autoFullscreen = false});
+  const PlayerScreen({super.key, this.isLive = false, this.autoFullscreen = true});
 
   @override
   State<PlayerScreen> createState() => _PlayerScreenState();
@@ -19,7 +18,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
   void initState() {
     super.initState();
     controller = RhsNativePlayerController.single(
-      RhsMediaSource(widget.url, isLive: widget.isLive),
+      RhsMediaSource(
+        "https://user67561.nowcdn.co/done/widevine_playready/06bff34bc0fed90c578b72d72905680ae9b29e29/index.mpd",
+        isLive: widget.isLive,
+        drm: const RhsDrmConfig(type: RhsDrmType.widevine, licenseUrl: 'https://drm93075.nowdrm.co/widevine'),
+      ),
       autoPlay: true,
       loop: false,
     );
@@ -35,13 +38,13 @@ class _PlayerScreenState extends State<PlayerScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Player Screen')),
       body: Center(
         child: AspectRatio(
           aspectRatio: 16 / 9,
           child: RhsModernPlayer(
             controller: controller,
             autoFullscreen: widget.autoFullscreen,
+            autoHideAfter: const Duration(seconds: 10),
             overlay: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -56,17 +59,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     shadows: [Shadow(color: Colors.black, blurRadius: 4)],
                   ),
                 ),
-                if (widget.isLive) ...[
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(color: Colors.redAccent, borderRadius: BorderRadius.circular(4)),
-                    child: const Text(
-                      'LIVE',
-                      style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ],
               ],
             ),
           ),

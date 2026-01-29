@@ -8,25 +8,48 @@ import 'native_events.dart';
 import 'native_tracks.dart';
 import 'playback_options.dart';
 
-/// Bridge between Flutter and the native player implementation.
+/// Мост между Flutter и нативной реализацией плеера.
 ///
-/// The controller manages the playlist, lifecycle, and exposes convenience
-/// methods like [play], [pause], [seekTo], and track selection.
+/// Контроллер управляет плейлистом, жизненным циклом и предоставляет 
+/// удобные методы, такие как [play], [pause], [seekTo] и выбор дорожек.
 class RhsNativePlayerController {
+  /// Список медиа источников для воспроизведения
   final List<RhsMediaSource> playlist;
+  
+  /// Флаг автоматического воспроизведения при запуске
   final bool autoPlay;
+  
+  /// Флаг зацикливания воспроизведения
   final bool loop;
+  
+  /// Опции воспроизведения
   final RhsPlaybackOptions playbackOptions;
+  
+  /// Следующий доступный идентификатор контроллера
   static int _nextControllerId = 1;
+  
+  /// Идентификатор текущего контроллера
   final int _controllerId;
+  
+  /// Канал связи с нативным кодом
   MethodChannel? _channel;
+  
+  /// Обработчик событий нативного плеера
   RhsNativeEvents? _events;
+  
+  /// Позиция возобновления воспроизведения в миллисекундах
   int _resumePositionMs = 0;
+  
+  /// Флаг состояния воспроизведения перед паузой
   bool _wasPlaying = false;
+  
+  /// Слушатель событий изменения состояния
   VoidCallback? _eventsListener;
+  
+  /// Флаг режима экономии трафика
   bool _dataSaver = false;
 
-  /// Create a controller with a single media item.
+  /// Создает контроллер с одним медиа элементом.
   RhsNativePlayerController.single(
     RhsMediaSource source, {
     this.autoPlay = true,
@@ -37,7 +60,7 @@ class RhsNativePlayerController {
     _wasPlaying = autoPlay;
   }
 
-  /// Create a controller for a custom playlist.
+  /// Создает контроллер для пользовательского плейлиста.
   RhsNativePlayerController.playlist(
     this.playlist, {
     this.autoPlay = true,
@@ -47,7 +70,7 @@ class RhsNativePlayerController {
     _wasPlaying = autoPlay;
   }
 
-  /// Serialized arguments that are passed to the platform view.
+  /// Сериализованные аргументы, передаваемые в нативное представление.
   Map<String, dynamic> get creationParams => {
     'autoPlay': autoPlay,
     'loop': loop,
@@ -61,10 +84,10 @@ class RhsNativePlayerController {
         .toList(),
   };
 
-  /// Bind the controller to a platform view id.
+  /// Привязывает контроллер к идентификатору нативного представления.
   void attachViewId(int id) {
     _channel = MethodChannel('rhsplayer/view_$id');
-    // Rebind events; dispose previous to avoid leaks
+    // Перепривязывает события; освобождает предыдущие для избежания утечек
     _events?.dispose();
     final ev = RhsNativeEvents(id);
     ev.start();
@@ -78,6 +101,7 @@ class RhsNativePlayerController {
     ev.state.addListener(_eventsListener!);
   }
 
+  /// Преобразует конфигурацию DRM в карту для передачи в нативный код
   Map<String, dynamic> _drmToMap(RhsDrmConfig drm) => {
     'type': drm.type.name,
     'licenseUrl': drm.licenseUrl,
@@ -86,22 +110,22 @@ class RhsNativePlayerController {
     'contentId': drm.contentId,
   };
 
-  /// Begin playback if ready.
+  /// Начинает воспроизведение, если готов.
   Future<void> play() async => _invoke('play');
 
-  /// Pause playback while retaining the buffer.
+  /// Ставит воспроизведение на паузу, сохраняя буфер.
   Future<void> pause() async => _invoke('pause');
 
-  /// Seek to a new [position].
+  /// Перематывает к новой [position].
   Future<void> seekTo(Duration position) async => _invoke('seekTo', {'millis': position.inMilliseconds});
 
-  /// Adjust the playback [speed].
+  /// Регулирует скорость воспроизведения [speed].
   Future<void> setSpeed(double speed) async => _invoke('setSpeed', {'speed': speed});
 
-  /// Toggle looping for the current item or playlist.
+  /// Переключает зацикливание для текущего элемента или плейлиста.
   Future<void> setLooping(bool looping) async => _invoke('setLooping', {'loop': looping});
 
-  /// Update the content scaling of the platform view.
+  /// Обновляет масштабирование содержимого нативного представления.
   Future<void> setBoxFit(BoxFit fit) async => _invoke('setBoxFit', {
     'fit': switch (fit) {
       BoxFit.contain => 'contain',
@@ -114,16 +138,16 @@ class RhsNativePlayerController {
     },
   });
 
-  /// Re-prepares the media source and attempts to resume playback.
+  /// Переподготавливает медиа источник и пытается возобновить воспроизведение.
   Future<void> retry() async => _invoke('retry');
 
-  /// Caps the bitrate when [enable] is true in order to save data.
+  /// Ограничивает битрейт, когда [enable] равно true, для экономии трафика.
   Future<void> setDataSaver(bool enable) async {
     _dataSaver = enable;
     await _invoke('setDataSaver', {'enable': enable});
   }
 
-  /// Retrieves the available video tracks from the native player.
+  /// Получает доступные видео дорожки от нативного плеера.
   Future<List<RhsVideoTrack>> getVideoTracks() async {
     final raw = await _invokeResult<List<dynamic>>('getVideoTracks');
     if (raw == null) return const [];
@@ -134,17 +158,17 @@ class RhsNativePlayerController {
         .toList();
   }
 
-  /// Select a specific video track by [trackId].
+  /// Выбирает конкретную видео дорожку по [trackId].
   Future<void> selectVideoTrack(String trackId) async {
     await _invoke('setVideoTrack', {'id': trackId});
   }
 
-  /// Clears manual track overrides and returns to automatic selection.
+  /// Очищает ручные переопределения дорожек и возвращается к автоматическому выбору.
   Future<void> clearVideoTrackSelection() async {
     await _invoke('setVideoTrack', {'id': null});
   }
 
-  /// Retrieves the available audio tracks.
+  /// Получает доступные аудио дорожки.
   Future<List<RhsAudioTrack>> getAudioTracks() async {
     final raw = await _invokeResult<List<dynamic>>('getAudioTracks');
     if (raw == null) return const [];
@@ -155,12 +179,12 @@ class RhsNativePlayerController {
         .toList();
   }
 
-  /// Selects an audio track. Passing `null` restores the default selection.
+  /// Выбирает аудио дорожку. Передача `null` восстанавливает выбор по умолчанию.
   Future<void> selectAudioTrack(String? trackId) async {
     await _invoke('setAudioTrack', {'id': trackId});
   }
 
-  /// Retrieves legible subtitle / caption tracks.
+  /// Получает дорожки субтитров / титров.
   Future<List<RhsSubtitleTrack>> getSubtitleTracks() async {
     final raw = await _invokeResult<List<dynamic>>('getSubtitleTracks');
     if (raw == null) return const [];
@@ -171,26 +195,27 @@ class RhsNativePlayerController {
         .toList();
   }
 
-  /// Selects a subtitle track. Passing `null` disables text rendering.
+  /// Выбирает дорожку субтитров. Передача `null` отключает отображение текста.
   Future<void> selectSubtitleTrack(String? trackId) async {
     await _invoke('setSubtitleTrack', {'id': trackId});
   }
 
-  /// Requests picture-in-picture mode where supported.
+  /// Запрашивает режим "картинка в картинке", где поддерживается.
   Future<bool> enterPictureInPicture() async {
     final ok = await _invokeResult<bool>('enterPip');
     return ok ?? false;
   }
 
-  /// Release native resources.
+  /// Освобождает нативные ресурсы.
   Future<void> dispose() async {
     await _invoke('dispose');
     _events?.dispose();
   }
 
-  /// Playback events emitted by the native layer.
+  /// События воспроизведения, генерируемые нативным слоем.
   RhsNativeEvents? get events => _events;
 
+  /// Вызывает метод нативного кода без возвращаемого значения
   Future<void> _invoke(String method, [Map<String, dynamic>? args]) async {
     final ch = _channel;
     if (ch == null) return;
@@ -199,6 +224,7 @@ class RhsNativePlayerController {
     } catch (_) {}
   }
 
+  /// Вызывает метод нативного кода с возвращаемым значением
   Future<T?> _invokeResult<T>(String method, [Map<String, dynamic>? args]) async {
     final ch = _channel;
     if (ch == null) return null;

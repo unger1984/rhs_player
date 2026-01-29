@@ -2,11 +2,18 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 
-/// Snapshot of the current playback position reported by the native layer.
+/// Снимок текущей позиции воспроизведения, сообщаемой нативным слоем.
 class RhsPlaybackState {
+  /// Текущая позиция воспроизведения
   final Duration position;
+  
+  /// Общая продолжительность медиа
   final Duration duration;
+  
+  /// Флаг воспроизведения
   final bool isPlaying;
+  
+  /// Флаг буферизации
   final bool isBuffering;
 
   const RhsPlaybackState({
@@ -17,28 +24,38 @@ class RhsPlaybackState {
   });
 }
 
-/// Listens to the platform event channel and exposes playback state updates.
+/// Слушает канал событий платформы и предоставляет обновления состояния воспроизведения.
 class RhsNativeEvents {
+  /// Идентификатор представления
   final int viewId;
+  
+  /// Канал событий платформы
   late final EventChannel _eventChannel;
+  
+  /// Подписка на события
   StreamSubscription? _sub;
 
+  /// Уведомитель состояния воспроизведения
   final ValueNotifier<RhsPlaybackState> state = ValueNotifier(
     const RhsPlaybackState(position: Duration.zero, duration: Duration.zero, isPlaying: false, isBuffering: true),
   );
 
-  // Emits non-null when native side reports an error; clear when playback resumes.
+  /// Уведомитель ошибок воспроизведения
+  /// Выдает ненулевое значение, когда нативная сторона сообщает об ошибке; 
+  /// очищается при возобновлении воспроизведения.
   final ValueNotifier<String?> error = ValueNotifier(null);
 
   RhsNativeEvents(this.viewId) {
     _eventChannel = EventChannel('rhsplayer/events_$viewId');
   }
 
+  /// Начинает прослушивание событий
   void start() {
     _sub?.cancel();
     _sub = _eventChannel.receiveBroadcastStream().listen(_onEvent, onError: (_) {});
   }
 
+  /// Обрабатывает событие от платформы
   void _onEvent(dynamic evt) {
     if (evt is Map) {
       final posMs = (evt['positionMs'] as num?)?.toInt() ?? 0;
@@ -49,7 +66,7 @@ class RhsNativeEvents {
       if (errMsg != null && errMsg.isNotEmpty) {
         error.value = errMsg;
       } else if (playing) {
-        // Clear error once playback resumes
+        // Очищает ошибку после возобновления воспроизведения
         error.value = null;
       }
       state.value = RhsPlaybackState(
@@ -61,6 +78,7 @@ class RhsNativeEvents {
     }
   }
 
+  /// Освобождает ресурсы
   void dispose() {
     _sub?.cancel();
     state.dispose();

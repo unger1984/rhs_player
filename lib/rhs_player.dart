@@ -1,7 +1,7 @@
-/// Top-level library export for rhs_player.
+/// Верхнеуровневая библиотека экспорта для rhs_player.
 ///
-/// Import `package:rhs_player/rhs_player.dart` for the public API that bundles
-/// media sources, controllers, and ready-made widgets.
+/// Импортируйте `package:rhs_player/rhs_player.dart` для получения публичного API, 
+/// который объединяет источники медиа, контроллеры и готовые виджеты.
 // ignore: unnecessary_library_name
 library rhs_player;
 
@@ -16,11 +16,11 @@ export 'src/ui/native_controls.dart';
 export 'src/ui/modern_player.dart';
 import 'rhs_player_platform_interface.dart';
 
-/// Simple facade around the platform interface. Primarily used by the
-/// federated example tests; most clients should use the controller APIs
-/// directly instead of this class.
+/// Простой фасад вокруг интерфейса платформы. В основном используется 
+/// федеративными тестами примеров; большинство клиентов должны использовать 
+/// API контроллера напрямую вместо этого класса.
 class RhsPlayer {
-  /// Returns the platform version reported by the host platform plugin.
+  /// Возвращает версию платформы, сообщаемую плагином хост-платформы.
   Future<String?> getPlatformVersion() {
     return RhsPlayerPlatform.instance.getPlatformVersion();
   }

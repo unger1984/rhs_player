@@ -1,32 +1,43 @@
-/// Supported DRM schemes for the native players.
-enum RhsDrmType { none, widevine, clearKey }
+/// Поддерживаемые схемы DRM для нативных плееров.
+enum RhsDrmType { 
+  /// Нет DRM защиты
+  none, 
+  
+  /// Widevine DRM (Google)
+  widevine, 
+  
+  /// ClearKey DRM (открытый ключ)
+  clearKey 
+}
 
-/// Bundle of DRM configuration passed to the native player engines.
+/// Набор конфигурации DRM, передаваемый движкам нативных плееров.
 ///
-/// The same config object is used on Android (Widevine / ClearKey) and iOS
-/// (AVContentKey). Values are forwarded verbatim, so provider specific header
-/// and token formats can be used without modification.
+/// Один и тот же объект конфигурации используется на Android (Widevine / ClearKey) 
+/// и iOS (AVContentKey). Значения передаются без изменений, поэтому форматы 
+/// заголовков и токенов, специфичные для провайдера, могут использоваться 
+/// без модификации.
 class RhsDrmConfig {
-  /// DRM scheme to activate. Use [RhsDrmType.none] for clear content.
+  /// Схема DRM для активации. Используйте [RhsDrmType.none] для незащищенного контента.
   final RhsDrmType type;
 
-  /// Optional license server endpoint (e.g. Widevine licence URL).
+  /// Дополнительная конечная точка сервера лицензий (например, URL лицензии Widevine).
   final String? licenseUrl;
 
-  /// Additional HTTP headers added to license requests.
+  /// Дополнительные HTTP заголовки, добавляемые к запросам лицензий.
   final Map<String, String>? headers;
 
-  /// JSON payload for ClearKey on Android. The value is passed directly to
-  /// ExoPlayer, so it should contain the base64 encoded key/value pairs.
-  final String? clearKey; // JSON as required by ExoPlayer when using ClearKey
+  /// JSON полезная нагрузка для ClearKey на Android. Значение передается 
+  /// непосредственно в ExoPlayer, поэтому оно должно содержать пары 
+  /// ключ/значение в кодировке base64.
+  final String? clearKey; // JSON как требуется ExoPlayer при использовании ClearKey
 
-  /// Optional content id identifier used by some license servers.
+  /// Дополнительный идентификатор контента, используемый некоторыми серверами лицензий.
   final String? contentId;
 
-  /// Creates a DRM configuration.
+  /// Создает конфигурацию DRM.
   const RhsDrmConfig({required this.type, this.licenseUrl, this.headers, this.clearKey, this.contentId});
 
-  /// Indicates whether DRM is enabled for the current media.
+  /// Указывает, включена ли DRM для текущего медиа.
   bool get isDrm => type != RhsDrmType.none;
 
   @override

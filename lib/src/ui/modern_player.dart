@@ -8,18 +8,40 @@ import '../utils/native_bridge.dart';
 import 'native_fullscreen.dart';
 import '../utils/thumbnails.dart';
 
-/// High-level Flutter widget that renders the modern gesture driven UI.
+/// Высокоуровневый виджет Flutter, который отображает современный интерфейс 
+/// с поддержкой жестов.
 class RhsModernPlayer extends StatefulWidget {
+  /// Контроллер для управления воспроизведением
   final RhsNativePlayerController controller;
+  
+  /// Дополнительный оверлей, который будет отображаться поверх плеера
   final Widget? overlay;
+  
+  /// Время перемотки при двойном нажатии
   final Duration doubleTapSeek;
+  
+  /// Время перемотки при длительном нажатии
   final Duration longPressSeek;
+  
+  /// Время автоматического скрытия элементов управления
   final Duration autoHideAfter;
+  
+  /// Начальный режим масштабирования видео
   final BoxFit initialBoxFit;
+  
+  /// Флаг блокировки элементов управления при запуске
   final bool startLocked;
+  
+  /// Флаг полноэкранного режима
   final bool isFullscreen;
+  
+  /// Флаг автоматического перехода в полноэкранный режим
   final bool autoFullscreen;
+  
+  /// Обработчик изменения состояния воспроизведения
   final ValueChanged<RhsPlaybackState>? onStateChanged;
+  
+  /// Обработчик ошибок воспроизведения
   final ValueChanged<String?>? onError;
 
   const RhsModernPlayer({
@@ -42,7 +64,10 @@ class RhsModernPlayer extends StatefulWidget {
 }
 
 class _RhsModernPlayerState extends State<RhsModernPlayer> {
+  /// Интервал тиков при длительном нажатии
   static const Duration _longPressTick = Duration(milliseconds: 200);
+  
+  /// Доступные режимы масштабирования
   static const List<BoxFit> _boxFitChoices = <BoxFit>[
     BoxFit.contain,
     BoxFit.cover,
@@ -50,49 +75,134 @@ class _RhsModernPlayerState extends State<RhsModernPlayer> {
     BoxFit.fitWidth,
     BoxFit.fitHeight,
   ];
+  
+  /// Радиус скругления диалоговых окон
   static const double _dialogCornerRadius = 5;
+  
+  /// Уведомитель режима масштабирования
   late final ValueNotifier<BoxFit> _fit = ValueNotifier(widget.initialBoxFit);
+  
+  /// Флаг отображения элементов управления
   bool _showControls = true;
+  
+  /// Таймер автоматического скрытия элементов управления
   Timer? _hide;
+  
+  /// Позиция предварительного просмотра при перемотке
   Duration? _preview;
+  
+  /// Начальная позиция горизонтального перетаскивания
   Offset? _hStart;
+  
+  /// Флаг отображения регулятора громкости
   bool _showVol = false;
+  
+  /// Флаг отображения регулятора яркости
   bool _showBri = false;
+  
+  /// Уровень громкости
   double _volLevel = 0.5;
+  
+  /// Уровень яркости
   double _briLevel = 0.5;
+  
+  /// Таймер скрытия регуляторов громкости/яркости
   Timer? _vbHide;
+  
+  /// Флаг блокировки элементов управления
   bool _locked = false;
+  
+  /// Флаг отображения подсказки о блокировке
   bool _lockHint = false;
+  
+  /// Таймер скрытия подсказки о блокировке
   Timer? _lockHintTimer;
+  
+  /// Текст всплывающего уведомления при перемотке
   String? _seekFlash;
+  
+  /// Выравнивание всплывающего уведомления
   Alignment _seekFlashAlign = Alignment.center;
+  
+  /// Таймер скрытия всплывающего уведомления
   Timer? _seekFlashTimer;
+  
+  /// Таймер повтора перемотки при длительном нажатии
   Timer? _seekRepeat;
+  
+  /// Накопленное время при длительном нажатии
   Duration _longPressAccumulated = Duration.zero;
+  
+  /// Целевая позиция при длительном нажатии
   Duration? _longPressTarget;
+  
+  /// Направление перемотки при длительном нажатии (1 - вперед, -1 - назад)
   int _longPressDirection = 0;
+  
+  /// Список миниатюр для предварительного просмотра
   List<ThumbCue>? _thumbs;
+  
+  /// Флаг загрузки миниатюр
   bool _thumbsLoading = false;
+  
+  /// Флаг режима экономии трафика
   bool _dataSaver = false;
+  
+  /// Список доступных видео дорожек
   List<RhsVideoTrack> _videoTracks = const <RhsVideoTrack>[];
+  
+  /// Идентификатор выбранной видео дорожки
   String? _manualTrackId;
+  
+  /// Будущее завершения загрузки видео дорожек
   Future<void>? _pendingTrackFetch;
+  
+  /// Номер запроса на загрузку видео дорожек
   int _trackFetchTicket = 0;
+  
+  /// Флаг автоматического перехода в полноэкранный режим
   bool _autoFullscreenTriggered = false;
+  
+  /// Последнее уведомление о состоянии воспроизведения
   RhsPlaybackState? _lastStateNotification;
+  
+  /// Последнее уведомление об ошибке
   String? _lastErrorNotification;
+  
+  /// Список доступных аудио дорожек
   List<RhsAudioTrack> _audioTracks = const <RhsAudioTrack>[];
+  
+  /// Список доступных субтитров
   List<RhsSubtitleTrack> _subtitleTracks = const <RhsSubtitleTrack>[];
+  
+  /// Будущее завершения загрузки аудио дорожек
   Future<void>? _pendingAudioFetch;
+  
+  /// Будущее завершения загрузки субтитров
   Future<void>? _pendingSubtitleFetch;
+  
+  /// Номер запроса на загрузку аудио дорожек
   int _audioFetchTicket = 0;
+  
+  /// Номер запроса на загрузку субтитров
   int _subtitleFetchTicket = 0;
+  
+  /// Идентификатор выбранной аудио дорожки
   String? _manualAudioId;
+  
+  /// Идентификатор выбранных субтитров
   String? _manualSubtitleId;
+  
+  /// Текущая скорость воспроизведения
   double _currentSpeed = 1.0;
+  
+  /// Скорость воспроизведения перед ускорением
   double? _speedBeforeBoost;
+  
+  /// Размер круглых кнопок управления
   static const double _circleControlSize = 52;
 
+  /// Создает оболочку для круглой кнопки
   Widget _circleShell(Widget child, {double? size}) {
     final resolvedSize = size ?? _circleControlSize;
     return Container(
@@ -104,6 +214,7 @@ class _RhsModernPlayerState extends State<RhsModernPlayer> {
     );
   }
 
+  /// Создает круглую кнопку с обработчиком нажатия
   Widget _circleTapButton({required Widget child, String? tooltip, VoidCallback? onTap, double? size}) {
     final resolvedSize = size ?? _circleControlSize;
     final button = Material(
@@ -118,13 +229,14 @@ class _RhsModernPlayerState extends State<RhsModernPlayer> {
     return Tooltip(message: tooltip, child: button);
   }
 
-  // Convenience accessor for thumbnail headers (first item wins)
+  /// Получает заголовки для запроса миниатюр (берется из первого элемента плейлиста)
   Map<String, String>? get _thumbHeaders {
     final list = widget.controller.playlist;
     if (list.isEmpty) return null;
     return list.first.thumbnailHeaders;
   }
 
+  /// Получает события воспроизведения из контроллера
   RhsNativeEvents? get _events => widget.controller.events;
 
   @override
@@ -136,6 +248,7 @@ class _RhsModernPlayerState extends State<RhsModernPlayer> {
     super.dispose();
   }
 
+  /// Перезапускает таймер автоматического скрытия элементов управления
   void _restartHide() {
     _hide?.cancel();
     _hide = Timer(widget.autoHideAfter, () {
@@ -143,6 +256,7 @@ class _RhsModernPlayerState extends State<RhsModernPlayer> {
     });
   }
 
+  /// Проверяет необходимость автоматического перехода в полноэкранный режим
   void _maybeAutoFullscreen() {
     if (_autoFullscreenTriggered) return;
     if (!widget.autoFullscreen || widget.isFullscreen) return;
@@ -150,6 +264,7 @@ class _RhsModernPlayerState extends State<RhsModernPlayer> {
     _enterFullscreen();
   }
 
+  /// Переходит в полноэкранный режим
   void _enterFullscreen() {
     if (!mounted || widget.isFullscreen) return;
     setState(() {
@@ -181,6 +296,7 @@ class _RhsModernPlayerState extends State<RhsModernPlayer> {
     }
   }
 
+  /// Проверяет, изменилось ли состояние воспроизведения
   bool _hasStateChanged(RhsPlaybackState current) {
     final prev = _lastStateNotification;
     if (prev == null) return true;
@@ -203,6 +319,7 @@ class _RhsModernPlayerState extends State<RhsModernPlayer> {
     });
   }
 
+  /// Загружает миниатюры для предварительного просмотра
   Future<void> _maybeLoadThumbs() async {
     if (_thumbsLoading) return;
     final list = widget.controller.playlist;
@@ -226,6 +343,7 @@ class _RhsModernPlayerState extends State<RhsModernPlayer> {
     }
   }
 
+  /// Отображает всплывающее уведомление при перемотке
   void _showSeekFlash(String text, Alignment alignment, {Duration? hideAfter}) {
     _seekFlashTimer?.cancel();
     _seekFlashTimer = null;
@@ -248,6 +366,7 @@ class _RhsModernPlayerState extends State<RhsModernPlayer> {
     }
   }
 
+  /// Скрывает всплывающее уведомление при перемотке
   void _hideSeekFlash() {
     _seekFlashTimer?.cancel();
     _seekFlashTimer = null;
@@ -260,6 +379,7 @@ class _RhsModernPlayerState extends State<RhsModernPlayer> {
     }
   }
 
+  /// Начинает перемотку при длительном нажатии
   void _startLongPressSeek({required bool forward}) {
     final events = _events;
     if (events == null) return;
@@ -275,6 +395,7 @@ class _RhsModernPlayerState extends State<RhsModernPlayer> {
     _restartHide();
   }
 
+  /// Обновляет направление перемотки при длительном нажатии
   void _updateLongPressDirection({required bool forward}) {
     final newDirection = forward ? 1 : -1;
     if (_seekRepeat == null || _longPressDirection == newDirection) {
@@ -286,6 +407,7 @@ class _RhsModernPlayerState extends State<RhsModernPlayer> {
     _longPressTarget = events?.state.value.position;
   }
 
+  /// Применяет перемотку при длительном нажатии
   void _applyLongPressSeek() {
     final events = _events;
     if (events == null) return;
@@ -314,6 +436,7 @@ class _RhsModernPlayerState extends State<RhsModernPlayer> {
     _showSeekFlash(label, _longPressDirection < 0 ? Alignment.centerLeft : Alignment.centerRight);
   }
 
+  /// Останавливает перемотку при длительном нажатии
   void _stopLongPressSeek({bool animateHide = true}) {
     final direction = _longPressDirection;
     final accumulated = _longPressAccumulated;
@@ -341,16 +464,19 @@ class _RhsModernPlayerState extends State<RhsModernPlayer> {
     _restartHide();
   }
 
+  /// Ограничивает значение продолжительности в заданном диапазоне
   Duration _clampDuration(Duration value, Duration min, Duration max) {
     if (value < min) return min;
     if (value > max) return max;
     return value;
   }
 
+  /// Возвращает абсолютное значение продолжительности
   Duration _absDuration(Duration value) {
     return value.isNegative ? -value : value;
   }
 
+  /// Форматирует значение перемотки для отображения
   String _formatSeekValue(Duration value) {
     final ms = value.inMilliseconds.abs();
     if (ms == 0) return '0';
@@ -362,6 +488,7 @@ class _RhsModernPlayerState extends State<RhsModernPlayer> {
     return fixed.endsWith('.0') ? fixed.substring(0, fixed.length - 2) : fixed;
   }
 
+  /// Обновляет список доступных видео дорожек
   void _refreshVideoTracks({bool force = false}) {
     if (!force && _pendingTrackFetch != null) return;
     final ticket = ++_trackFetchTicket;
@@ -384,6 +511,7 @@ class _RhsModernPlayerState extends State<RhsModernPlayer> {
         });
   }
 
+  /// Обновляет список доступных аудио дорожек
   void _refreshAudioTracks({bool force = false}) {
     if (!force && _pendingAudioFetch != null) return;
     final ticket = ++_audioFetchTicket;
@@ -406,6 +534,7 @@ class _RhsModernPlayerState extends State<RhsModernPlayer> {
         });
   }
 
+  /// Обновляет список доступных субтитров
   void _refreshSubtitleTracks({bool force = false}) {
     if (!force && _pendingSubtitleFetch != null) return;
     final ticket = ++_subtitleFetchTicket;
@@ -428,6 +557,7 @@ class _RhsModernPlayerState extends State<RhsModernPlayer> {
         });
   }
 
+  /// Получает активную видео дорожку
   RhsVideoTrack? get _activeTrack {
     for (final t in _videoTracks) {
       if (t.selected) return t;
@@ -435,6 +565,7 @@ class _RhsModernPlayerState extends State<RhsModernPlayer> {
     return null;
   }
 
+  /// Проверяет необходимость загрузки дорожек
   void _ensureTracksLoaded(RhsPlaybackState st) {
     if (st.isBuffering && st.duration == Duration.zero) return;
     if (_videoTracks.isEmpty) _refreshVideoTracks();
@@ -442,12 +573,14 @@ class _RhsModernPlayerState extends State<RhsModernPlayer> {
     if (_subtitleTracks.isEmpty) _refreshSubtitleTracks();
   }
 
+  /// Получает иконку для кнопки качества
   IconData get _qualityIcon {
     if (_dataSaver) return Icons.data_saver_on;
     if (_manualTrackId != null) return Icons.high_quality;
     return Icons.hd;
   }
 
+  /// Обрабатывает выбор качества видео
   Future<void> _onQualitySelected(String value) async {
     switch (value) {
       case 'auto':
@@ -480,6 +613,7 @@ class _RhsModernPlayerState extends State<RhsModernPlayer> {
     _refreshVideoTracks(force: true);
   }
 
+  /// Создает строку меню выбора качества
   Widget _qualityMenuRow(
     BuildContext context, {
     required String label,
@@ -679,7 +813,7 @@ class _RhsModernPlayerState extends State<RhsModernPlayer> {
                 valueListenable: _fit,
                 builder: (_, fit, __) => RhsNativePlayerView(controller: widget.controller, boxFit: fit, overlay: null),
               ),
-              // Top transparent interaction layer to ensure taps anywhere are detected
+              // Верхний прозрачный слой взаимодействия для обеспечения обнаружения нажатий в любом месте
               Positioned.fill(
                 child: GestureDetector(
                   behavior: HitTestBehavior.translucent,
@@ -909,7 +1043,7 @@ class _RhsModernPlayerState extends State<RhsModernPlayer> {
                   bottom: 24,
                   child: _VerticalSlider(value: _briLevel, icon: Icons.brightness_6),
                 ),
-              // Error overlay (retry) on top of everything
+              // Оверлей ошибки (повтор) поверх всего
               if (_events?.error.value != null)
                 Container(
                   color: Colors.black54,
@@ -946,6 +1080,7 @@ class _RhsModernPlayerState extends State<RhsModernPlayer> {
     );
   }
 
+  /// Создает элементы управления
   Widget _controls(BuildContext context, RhsPlaybackState st) {
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -979,6 +1114,7 @@ class _RhsModernPlayerState extends State<RhsModernPlayer> {
     );
   }
 
+  /// Создает строку прогресса воспроизведения
   Widget _buildProgressRow(BuildContext context, RhsPlaybackState st) {
     return Row(
       children: [
@@ -1010,6 +1146,7 @@ class _RhsModernPlayerState extends State<RhsModernPlayer> {
     );
   }
 
+  /// Создает круглые кнопки управления
   List<Widget> _buildCircleControls(BuildContext context, double circleSize) {
     final widgets = <Widget>[
       _buildQualityButton(context, circleSize),
@@ -1021,6 +1158,7 @@ class _RhsModernPlayerState extends State<RhsModernPlayer> {
     return widgets;
   }
 
+  /// Создает строку транспортных кнопок
   Widget _buildTransportRow(
     BuildContext context,
     RhsPlaybackState st,
@@ -1056,6 +1194,7 @@ class _RhsModernPlayerState extends State<RhsModernPlayer> {
     );
   }
 
+  /// Создает кнопку воспроизведения/паузы
   Widget _buildPlayPauseButton(RhsPlaybackState st, {double? diameter}) {
     final icon = st.isPlaying ? Icons.pause : Icons.play_arrow;
     final overlayOpacity = st.isPlaying ? 0.35 : 0.22;
@@ -1080,6 +1219,7 @@ class _RhsModernPlayerState extends State<RhsModernPlayer> {
     );
   }
 
+  /// Создает кнопку перемотки
   Widget _buildSeekButton(RhsPlaybackState st, Duration offset, double circleSize) {
     final isForward = offset.inMilliseconds > 0;
     final seconds = offset.inSeconds.abs();
@@ -1102,6 +1242,7 @@ class _RhsModernPlayerState extends State<RhsModernPlayer> {
     );
   }
 
+  /// Получает иконку для кнопки перемотки
   IconData? _seekIconFor(int seconds, bool isForward) {
     if (seconds == 5) {
       return isForward ? Icons.forward_5 : Icons.replay_5;
@@ -1115,6 +1256,7 @@ class _RhsModernPlayerState extends State<RhsModernPlayer> {
     return null;
   }
 
+  /// Выполняет относительную перемотку
   void _seekRelative(RhsPlaybackState st, Duration offset) {
     final current = _events?.state.value ?? st;
     final durationMs = current.duration.inMilliseconds;
@@ -1125,6 +1267,7 @@ class _RhsModernPlayerState extends State<RhsModernPlayer> {
     _restartHide();
   }
 
+  /// Начинает ускоренное воспроизведение
   void _handleSpeedBoostStart() {
     if (_speedBeforeBoost != null) return;
     _speedBeforeBoost = _currentSpeed;
@@ -1133,6 +1276,7 @@ class _RhsModernPlayerState extends State<RhsModernPlayer> {
     _restartHide();
   }
 
+  /// Завершает ускоренное воспроизведение
   void _handleSpeedBoostEnd() {
     final previous = _speedBeforeBoost;
     if (previous == null) return;
@@ -1142,6 +1286,7 @@ class _RhsModernPlayerState extends State<RhsModernPlayer> {
     _restartHide();
   }
 
+  /// Устанавливает пользовательскую скорость воспроизведения
   Future<void> _setUserSpeed(double speed) async {
     _speedBeforeBoost = null;
     setState(() => _currentSpeed = speed);
@@ -1150,10 +1295,12 @@ class _RhsModernPlayerState extends State<RhsModernPlayer> {
     _restartHide();
   }
 
+  /// Получает текст для отображения текущей скорости воспроизведения
   String get _speedBadge {
     return _formatSpeed(_currentSpeed, uppercase: true);
   }
 
+  /// Форматирует значение скорости воспроизведения для отображения
   String _formatSpeed(double speed, {bool uppercase = false}) {
     final suffix = uppercase ? 'X' : 'x';
     if ((speed - speed.roundToDouble()).abs() < 0.01) {
@@ -1165,6 +1312,7 @@ class _RhsModernPlayerState extends State<RhsModernPlayer> {
     return '${speed.toStringAsFixed(2)}$suffix';
   }
 
+  /// Создает кнопку выбора качества видео
   Widget _buildQualityButton(BuildContext context, double circleSize) {
     return PopupMenuButton<String>(
       tooltip: 'Quality',
@@ -1178,6 +1326,7 @@ class _RhsModernPlayerState extends State<RhsModernPlayer> {
     );
   }
 
+  /// Создает кнопку выбора аудио дорожки
   Widget _buildAudioButton(BuildContext context, double circleSize) {
     return PopupMenuButton<String>(
       tooltip: 'Audio',
@@ -1200,6 +1349,7 @@ class _RhsModernPlayerState extends State<RhsModernPlayer> {
     );
   }
 
+  /// Создает кнопку выбора субтитров
   Widget _buildSubtitleButton(BuildContext context, double circleSize) {
     return PopupMenuButton<String>(
       tooltip: 'Subtitles',
@@ -1222,6 +1372,7 @@ class _RhsModernPlayerState extends State<RhsModernPlayer> {
     );
   }
 
+  /// Создает кнопку блокировки элементов управления
   Widget _buildLockButton(double circleSize) {
     return _circleTapButton(
       tooltip: 'Lock controls',
@@ -1236,6 +1387,7 @@ class _RhsModernPlayerState extends State<RhsModernPlayer> {
     );
   }
 
+  /// Создает кнопку изменения скорости воспроизведения
   Widget _buildSpeedButton(double circleSize) {
     return PopupMenuButton<double>(
       tooltip: 'Speed',
@@ -1252,6 +1404,7 @@ class _RhsModernPlayerState extends State<RhsModernPlayer> {
     );
   }
 
+  /// Создает кнопку изменения режима масштабирования
   Widget _buildResizeButton(BuildContext context, double circleSize) {
     return _circleTapButton(
       tooltip: 'Resize',
@@ -1268,6 +1421,7 @@ class _RhsModernPlayerState extends State<RhsModernPlayer> {
     );
   }
 
+  /// Создает кнопку перехода в режим "картинка в картинке"
   Widget _buildPipButton(double circleSize) {
     return _circleTapButton(
       tooltip: 'Picture-in-picture',
@@ -1291,6 +1445,7 @@ class _RhsModernPlayerState extends State<RhsModernPlayer> {
     );
   }
 
+  /// Создает кнопку перехода в полноэкранный режим
   Widget _buildFullscreenButton(BuildContext context, double circleSize) {
     final icon = widget.isFullscreen ? Icons.fullscreen_exit : Icons.fullscreen;
     return _circleTapButton(
@@ -1307,6 +1462,7 @@ class _RhsModernPlayerState extends State<RhsModernPlayer> {
     );
   }
 
+  /// Создает элементы меню выбора качества видео
   List<PopupMenuEntry<String>> _qualityPopupItems(BuildContext context) {
     final items = <PopupMenuEntry<String>>[];
     final current = _activeTrack;
@@ -1354,6 +1510,7 @@ class _RhsModernPlayerState extends State<RhsModernPlayer> {
     return items;
   }
 
+  /// Создает элементы меню выбора аудио дорожки
   List<PopupMenuEntry<String>> _audioPopupItems(BuildContext context) {
     final items = <PopupMenuEntry<String>>[
       PopupMenuItem(
@@ -1385,6 +1542,7 @@ class _RhsModernPlayerState extends State<RhsModernPlayer> {
     return items;
   }
 
+  /// Создает элементы меню выбора субтитров
   List<PopupMenuEntry<String>> _subtitlePopupItems(BuildContext context) {
     final items = <PopupMenuEntry<String>>[
       PopupMenuItem(
@@ -1416,6 +1574,7 @@ class _RhsModernPlayerState extends State<RhsModernPlayer> {
     return items;
   }
 
+  /// Создает элементы меню выбора скорости воспроизведения
   List<PopupMenuEntry<double>> _speedPopupItems(BuildContext context) {
     const speeds = <double>[0.5, 1.0, 1.25, 1.5, 2.0];
     return speeds
@@ -1440,6 +1599,7 @@ class _RhsModernPlayerState extends State<RhsModernPlayer> {
         .toList();
   }
 
+  /// Отображает диалог выбора режима масштабирования
   Future<BoxFit?> _showBoxFitDialog() {
     if (!mounted) return Future.value(null);
     final current = _fit.value;
@@ -1513,6 +1673,7 @@ class _RhsModernPlayerState extends State<RhsModernPlayer> {
     );
   }
 
+  /// Получает текстовую метку для режима масштабирования
   String _boxFitLabel(BoxFit fit) {
     switch (fit) {
       case BoxFit.contain:
@@ -1532,6 +1693,7 @@ class _RhsModernPlayerState extends State<RhsModernPlayer> {
     }
   }
 
+  /// Получает иконку для режима масштабирования
   IconData _boxFitIcon(BoxFit fit) {
     switch (fit) {
       case BoxFit.contain:
@@ -1551,6 +1713,7 @@ class _RhsModernPlayerState extends State<RhsModernPlayer> {
     }
   }
 
+  /// Форматирует продолжительность для отображения
   String _fmt(Duration d) {
     if (d.inHours > 0) {
       final h = d.inHours.toString().padLeft(2, '0');
@@ -1563,6 +1726,7 @@ class _RhsModernPlayerState extends State<RhsModernPlayer> {
     return '$m:$s';
   }
 
+  /// Создает миниатюру для предварительного просмотра
   Widget _buildThumbFor(Duration d) {
     final cues = _thumbs;
     if (cues == null || cues.isEmpty) return const SizedBox.shrink();
@@ -1600,6 +1764,7 @@ class _RhsModernPlayerState extends State<RhsModernPlayer> {
   }
 }
 
+/// Вертикальный слайдер для регулировки громкости/яркости
 class _VerticalSlider extends StatelessWidget {
   final double value;
   final IconData icon;

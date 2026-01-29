@@ -1,26 +1,27 @@
 import 'drm.dart';
 
-/// Definition of a single media item for the native player.
+/// Определение одного медиа элемента для нативного плеера.
 class RhsMediaSource {
-  /// Stream URL or manifest (HLS/DASH/MP4/etc).
+  /// URL потока или манифеста (HLS/DASH/MP4/и т.д.).
   final String url;
 
-  /// Optional HTTP headers applied to the media request.
+  /// Дополнительные HTTP заголовки, применяемые к запросу медиа.
   final Map<String, String>? headers;
 
-  /// When `true`, enables live-stream tuning such as low latency buffering.
+  /// Когда `true`, включает настройку потокового вещания, 
+  /// такую как буферизация с низкой задержкой.
   final bool isLive;
 
-  /// DRM configuration for the item.
+  /// Конфигурация DRM для элемента.
   final RhsDrmConfig drm;
 
-  /// Optional VTT sprite sheet used to render seek thumbnails.
+  /// Дополнительный VTT спрайт для отображения миниатюр при перемотке.
   final String? thumbnailVttUrl;
 
-  /// Additional headers for thumbnail requests.
+  /// Дополнительные заголовки для запросов миниатюр.
   final Map<String, String>? thumbnailHeaders;
 
-  /// Creates a media source definition.
+  /// Создает определение медиа источника.
   const RhsMediaSource(
     this.url, {
     this.headers,
@@ -30,9 +31,9 @@ class RhsMediaSource {
     this.thumbnailHeaders,
   });
 
-  /// `true` if the URL looks like an HLS manifest.
+  /// `true`, если URL выглядит как манифест HLS.
   bool get isM3U8 => url.toLowerCase().endsWith('.m3u8');
 
-  /// `true` if the URL ends with `.m3u`.
+  /// `true`, если URL заканчивается на `.m3u`.
   bool get isM3U => url.toLowerCase().endsWith('.m3u');
 }

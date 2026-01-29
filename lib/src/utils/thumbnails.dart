@@ -2,13 +2,27 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+/// Класс для представления миниатюры в определенный период времени
 class ThumbCue {
+  /// Время начала отображения миниатюры
   final Duration start;
+  
+  /// Время окончания отображения миниатюры
   final Duration end;
+  
+  /// URI изображения миниатюры
   final Uri image;
+  
+  /// Координата X обрезки изображения
   final int? x;
+  
+  /// Координата Y обрезки изображения
   final int? y;
+  
+  /// Ширина обрезки изображения
   final int? w;
+  
+  /// Высота обрезки изображения
   final int? h;
 
   const ThumbCue({
@@ -21,14 +35,17 @@ class ThumbCue {
     this.h,
   });
 
+  /// Проверяет, есть ли обрезка изображения
   bool get hasCrop => x != null && y != null && w != null && h != null;
 }
 
+/// Кэш миниатюр
 final _thumbCache = <String, List<ThumbCue>>{};
 
-/// Clears the in-memory thumbnail cache.
+/// Очищает кэш миниатюр в памяти.
 void clearThumbnailCache() => _thumbCache.clear();
 
+/// Загружает миниатюры из VTT файла
 Future<List<ThumbCue>> fetchVttThumbnails(
   String url, {
   Map<String, String>? headers,
@@ -53,6 +70,7 @@ Future<List<ThumbCue>> fetchVttThumbnails(
   return cues;
 }
 
+/// Генерирует ключ для кэширования миниатюр
 String _cacheKey(String url, Map<String, String>? headers) {
   if (headers == null || headers.isEmpty) return url;
   final sorted =
@@ -68,6 +86,7 @@ String _cacheKey(String url, Map<String, String>? headers) {
   return buffer.toString();
 }
 
+/// Парсит WebVTT файл и извлекает миниатюры
 List<ThumbCue> parseWebVtt(String input, {Uri? base}) {
   final lines = const LineSplitter().convert(input);
   final result = <ThumbCue>[];
@@ -83,7 +102,7 @@ List<ThumbCue> parseWebVtt(String input, {Uri? base}) {
       continue;
     }
     if (start != null && end != null) {
-      // Expect image url possibly with #xywh=x,y,w,h
+      // Ожидаем URL изображения, возможно с #xywh=x,y,w,h
       final uri = base == null ? Uri.parse(line) : base.resolve(line);
       int? x, y, w, h;
       if (uri.fragment.startsWith('xywh=')) {
@@ -106,6 +125,7 @@ List<ThumbCue> parseWebVtt(String input, {Uri? base}) {
   return result;
 }
 
+/// Парсит время в формате VTT
 Duration _parseVttTime(String s) {
   // 00:00:05.000 or 00:05.000
   final parts = s.split(':');

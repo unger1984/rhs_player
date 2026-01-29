@@ -4,10 +4,15 @@ import 'package:flutter/services.dart';
 import '../platform/native_player_controller.dart';
 import 'modern_player.dart';
 
-/// Fullscreen route that reuses the underlying controller.
+/// Полноэкранная страница, которая повторно использует базовый контроллер.
 class RhsNativeFullscreenPage extends StatefulWidget {
+  /// Контроллер для управления воспроизведением
   final RhsNativePlayerController controller;
+  
+  /// Уведомитель режима масштабирования
   final ValueNotifier<BoxFit> boxFitNotifier;
+  
+  /// Дополнительный оверлей, который будет отображаться поверх плеера
   final Widget? overlay;
 
   const RhsNativeFullscreenPage({super.key, required this.controller, required this.boxFitNotifier, this.overlay});

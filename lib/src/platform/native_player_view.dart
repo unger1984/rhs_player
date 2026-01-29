@@ -6,10 +6,16 @@ import 'package:flutter/gestures.dart';
 
 import 'native_player_controller.dart';
 
-/// Wraps the Android/iOS platform view that renders the native video surface.
+/// Оборачивает нативное представление Android/iOS, которое отображает 
+/// поверхность видео.
 class RhsNativePlayerView extends StatefulWidget {
+  /// Контр롤ер для управления воспроизведением
   final RhsNativePlayerController controller;
+  
+  /// Дополнительный оверлей, который будет отображаться поверх плеера
   final Widget? overlay;
+  
+  /// Режим масштабирования видео
   final BoxFit boxFit;
 
   const RhsNativePlayerView({super.key, required this.controller, this.overlay, this.boxFit = BoxFit.contain});

@@ -1,20 +1,21 @@
-/// Configuration options that influence playback resilience and buffering.
+/// Параметры конфигурации, влияющие на устойчивость воспроизведения и буферизацию.
 class RhsPlaybackOptions {
-  /// Maximum automatic retry attempts before surfacing a failure. `-1`
-  /// indicates unlimited retries.
+  /// Максимальное количество автоматических попыток повтора перед 
+  /// сообщением об ошибке. `-1` означает неограниченное количество попыток.
   final int maxRetryCount;
 
-  /// Delay before the first retry attempt.
+  /// Задержка перед первой попыткой повтора.
   final Duration initialRetryDelay;
 
-  /// Maximum backoff delay between retries.
+  /// Максимальная задержка между попытками повтора.
   final Duration maxRetryDelay;
 
-  /// Whether the native player should automatically retry after recoverable
-  /// errors (HTTP 5xx, network timeouts, etc.).
+  /// Должен ли нативный плеер автоматически повторять попытки после 
+  /// восстановимых ошибок (HTTP 5xx, таймауты сети и т.д.).
   final bool autoRetry;
 
-  /// Optional timeout to rebuffer before considering playback stalled.
+  /// Дополнительный таймаут для повторной буферизации перед тем, 
+  /// как считать воспроизведение застопорившимся.
   final Duration? rebufferTimeout;
 
   const RhsPlaybackOptions({
@@ -25,7 +26,7 @@ class RhsPlaybackOptions {
     this.rebufferTimeout,
   });
 
-  /// Serializes this instance for the native platform layers.
+  /// Сериализует этот экземпляр для нативных платформенных слоев.
   Map<String, dynamic> toMap() => {
     'maxRetryCount': maxRetryCount,
     'initialRetryDelayMs': initialRetryDelay.inMilliseconds,

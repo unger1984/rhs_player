@@ -1,10 +1,21 @@
-/// Metadata describing a selectable video track exposed by the native player.
+/// Метаданные, описывающие выбираемую видео дорожку, предоставляемую нативным плеером.
 class RhsVideoTrack {
+  /// Идентификатор дорожки
   final String id;
+  
+  /// Метка дорожки
   final String? label;
+  
+  /// Битрейт дорожки
   final int? bitrate;
+  
+  /// Ширина видео
   final int? width;
+  
+  /// Высота видео
   final int? height;
+  
+  /// Флаг выбранной дорожки
   final bool selected;
 
   const RhsVideoTrack({
@@ -16,6 +27,7 @@ class RhsVideoTrack {
     required this.selected,
   });
 
+  /// Создает объект из карты данных
   factory RhsVideoTrack.fromMap(Map<dynamic, dynamic> map) {
     // ignore: no_leading_underscores_for_local_identifiers
     int? _int(dynamic v) {
@@ -35,6 +47,7 @@ class RhsVideoTrack {
     );
   }
 
+  /// Получает отображаемую метку дорожки
   String get displayLabel {
     final pieces = <String>[];
     if (label != null && label!.trim().isNotEmpty) {
@@ -54,11 +67,13 @@ class RhsVideoTrack {
     return pieces.join(' • ');
   }
 
+  /// Получает метку разрешения видео
   String? get _resolutionLabel {
     if (height == null || height == 0) return null;
     return '${height}p';
   }
 
+  /// Получает метку битрейта
   String? get _bitrateLabel {
     final br = bitrate;
     if (br == null || br <= 0) return null;
@@ -71,15 +86,23 @@ class RhsVideoTrack {
   }
 }
 
-/// Metadata for an audio track the user can switch to.
+/// Метаданные для аудио дорожки, которую пользователь может выбрать.
 class RhsAudioTrack {
+  /// Идентификатор дорожки
   final String id;
+  
+  /// Метка дорожки
   final String? label;
+  
+  /// Язык дорожки
   final String? language;
+  
+  /// Флаг выбранной дорожки
   final bool selected;
 
   const RhsAudioTrack({required this.id, this.label, this.language, required this.selected});
 
+  /// Создает объект из карты данных
   factory RhsAudioTrack.fromMap(Map<dynamic, dynamic> map) => RhsAudioTrack(
     id: map['id']?.toString() ?? '',
     label: map['label']?.toString(),
@@ -88,16 +111,26 @@ class RhsAudioTrack {
   );
 }
 
-/// Metadata for closed captions / subtitle tracks.
+/// Метаданные для дорожек закрытых подписей / субтитров.
 class RhsSubtitleTrack {
+  /// Идентификатор дорожки
   final String id;
+  
+  /// Метка дорожки
   final String? label;
+  
+  /// Язык дорожки
   final String? language;
+  
+  /// Флаг выбранной дорожки
   final bool selected;
+  
+  /// Флаг принудительных субтитров
   final bool isForced;
 
   const RhsSubtitleTrack({required this.id, this.label, this.language, required this.selected, this.isForced = false});
 
+  /// Создает объект из карты данных
   factory RhsSubtitleTrack.fromMap(Map<dynamic, dynamic> map) => RhsSubtitleTrack(
     id: map['id']?.toString() ?? '',
     label: map['label']?.toString(),

@@ -1,41 +1,41 @@
-# 📺 rhs_player (Android Only)
+# 📺 rhs_player (Только Android)
 
-Native, network‑only video player for Flutter with modern MX/VLC‑style UX. Uses ExoPlayer on Android. Includes gestures, thumbnails on seek, DRM, fullscreen, BoxFit, and more.
+Нативный видеоплеер только для сетевых источников для Flutter с современным UX в стиле MX/VLC. Использует ExoPlayer на Android. Включает жесты, миниатюры при перемотке, DRM, полноэкранный режим, BoxFit и многое другое.
 
-Forked from [tha_player](https://github.com/thethtwe-dev/tha_player).
-
----
-
-## ✨ Features
-
-- ✅ Native engine: ExoPlayer (Android)
-- ✅ Gestures: tap to show/hide, double‑tap seek, long‑press skip, horizontal scrub, vertical volume/brightness
-- ✅ Controls: play/pause, speed, fullscreen (manual or auto), lock, BoxFit (contain/cover/fill/fitWidth/fitHeight)
-- ✅ Quality, audio, and subtitle track selection with data saver toggle
-- ✅ Configurable retry/backoff, error callbacks, PiP playback controls
-- ✅ Thumbnails: WebVTT sprites or image sequences during seek preview (cached in-memory)
-- ✅ DRM: Widevine and ClearKey
-- ✅ M3U playlist parsing utility
-- ✅ Overlay support (watermark, logos)
+Форк [tha_player](https://github.com/thethtwe-dev/tha_player).
 
 ---
 
-## 📦 Install
+## ✨ Возможности
 
-Add to `pubspec.yaml`:
+- ✅ Нативный движок: ExoPlayer (Android)
+- ✅ Жесты: нажмите для показа/скрытия, двойное нажатие для перемотки, длительное нажатие для пропуска, горизонтальная прокрутка, вертикальная регулировка громкости/яркости
+- ✅ Управление: воспроизведение/пауза, скорость, полноэкранный режим (ручной или автоматический), блокировка, BoxFit (contain/cover/fill/fitWidth/fitHeight)
+- ✅ Выбор качества, аудио и субтитров с переключателем экономии трафика
+- ✅ Настраиваемые повторные попытки/откат, обратные вызовы ошибок, управление воспроизведением PiP
+- ✅ Миниатюры: спрайты WebVTT или последовательности изображений во время предварительного просмотра перемотки (кешируются в памяти)
+- ✅ DRM: Widevine и ClearKey
+- ✅ Утилита парсинга плейлистов M3U
+- ✅ Поддержка оверлеев (водяные знаки, логотипы)
+
+---
+
+## 📦 Установка
+
+Добавьте в `pubspec.yaml`:
 
 ```yaml
 dependencies:
   rhs_player: ^0.5.0
 ```
 
-Then:
+Затем:
 
 ```
 flutter pub get
 ```
 
-## 🚀 Quick Start
+## 🚀 Быстрый старт
 
 ```
 import 'package:rhs_player/rhs_player.dart';
@@ -43,7 +43,7 @@ import 'package:rhs_player/rhs_player.dart';
 final ctrl = RhsNativePlayerController.single(
   RhsMediaSource(
     'https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-    // Optional VTT thumbnails
+    // Дополнительные миниатюры VTT
     // thumbnailVttUrl: 'https://example.com/thumbs.vtt',
   ),
   autoPlay: true,
@@ -53,7 +53,7 @@ final ctrl = RhsNativePlayerController.single(
   ),
 );
 
-// In build:
+// В build:
 AspectRatio(
   aspectRatio: 16 / 9,
   child: RhsModernPlayer(
@@ -66,29 +66,29 @@ AspectRatio(
 )
 ```
 
-### Fullscreen
+### Полноэкранный режим
 
-Tap the fullscreen icon in the control bar. Playback position and state are preserved when entering/exiting fullscreen.
+Нажмите значок полноэкранного режима на панели управления. Позиция воспроизведения и состояние сохраняются при входе/выходе из полноэкранного режима.
 
 ### BoxFit
 
-Choose between `contain`, `cover`, `fill`, `fitWidth`, and `fitHeight` from the menu.
+Выберите между `contain`, `cover`, `fill`, `fitWidth` и `fitHeight` из меню.
 
-### Track Selection
+### Выбор дорожек
 
-Use the control bar to switch quality, audio, or subtitle tracks at runtime. You can also fetch tracks directly:
+Используйте панель управления для переключения качества, аудио или субтитров во время выполнения. Вы также можете получить дорожки напрямую:
 
 ```
 final qualities = await ctrl.getVideoTracks();
 final audios = await ctrl.getAudioTracks();
 final subtitles = await ctrl.getSubtitleTracks();
 await ctrl.selectAudioTrack(audios.first.id);
-await ctrl.selectSubtitleTrack(null); // disable captions
+await ctrl.selectSubtitleTrack(null); // отключить субтитры
 ```
 
-### Lock Controls
+### Блокировка управления
 
-Use the lock icon to prevent controls/gestures; unlock with the floating button.
+Используйте значок блокировки, чтобы предотвратить управление/жесты; разблокируйте с помощью плавающей кнопки.
 
 ### DRM
 
@@ -97,7 +97,7 @@ final ctrl = RhsNativePlayerController.single(
   RhsMediaSource(
     'https://my.cdn.com/drm/manifest.mpd',
     drm: RhsDrmConfig(
-      type: RhsDrmType.widevine, // or RhsDrmType.clearKey
+      type: RhsDrmType.widevine, // или RhsDrmType.clearKey
       licenseUrl: 'https://license.server/wv',
       headers: {'Authorization': 'Bearer <token>'},
       // clearKey: '{"keys":[{"kty":"oct","k":"...","kid":"..."}]}'
@@ -106,9 +106,9 @@ final ctrl = RhsNativePlayerController.single(
 );
 ```
 
-### Thumbnails (WebVTT)
+### Миниатюры (WebVTT)
 
-Provide a `.vtt` with sprites or images and optional `#xywh` regions:
+Предоставьте `.vtt` со спрайтами или изображениями и необязательными регионами `#xywh`:
 
 ```
 RhsMediaSource(
@@ -119,23 +119,23 @@ RhsMediaSource(
 
 ---
 
-## 🛠 Platform Notes
+## 🛠 Заметки о платформе
 
-- Android: ExoPlayer backend with Media3; Widevine/ClearKey supported; per‑item HTTP headers.
-- Keep‑screen‑on is enabled during playback.
-- Playability depends on device codecs, stream, and network.
+- Android: бэкенд ExoPlayer с Media3; поддерживается Widevine/ClearKey; заголовки HTTP для каждого элемента.
+- Подсветка экрана включена во время воспроизведения.
+- Воспроизводимость зависит от кодеков устройства, потока и сети.
 
-Thumbnails are cached in-memory. Call `clearThumbnailCache()` if you need to purge the cache.
+Миниатюры кэшируются в памяти. Вызовите `clearThumbnailCache()`, если вам нужно очистить кэш.
 
-### Resilient playback
+### Устойчивое воспроизведение
 
-`RhsPlaybackOptions` lets you tweak retry/backoff behaviour and rebuffer handling. Failures are surfaced via `RhsNativeEvents.error` and the `onError` callback on `RhsModernPlayer`.
+`RhsPlaybackOptions` позволяет настроить поведение повторных попыток/отката и обработку повторной буферизации. Ошибки отображаются через `RhsNativeEvents.error` и обратный вызов `onError` в `RhsModernPlayer`.
 
-### Custom HTTP
+### Пользовательский HTTP
 
-Provide a bespoke `OkHttpClient` to inject interceptors or caching:
+Предоставьте собственный `OkHttpClient` для внедрения перехватчиков или кэширования:
 
-Register the factory inside your Android `Application`:
+Зарегистрируйте фабрику внутри вашего Android `Application`:
 
 ```kotlin
 class App : FlutterApplication() {
@@ -151,32 +151,32 @@ class App : FlutterApplication() {
 }
 ```
 
-Set the factory before creating any Flutter controllers so every instance shares the same client.
+Установите фабрику перед созданием любых контроллеров Flutter, чтобы каждый экземпляр использовал один и тот же клиент.
 
-### 16 KB Page Size Support
+### Поддержка размера страницы 16 КБ
 
-This plugin does not ship custom native decoder binaries. If you add native libraries, link them with a max page size compatible with 16 KB systems (e.g., `-Wl,-z,max-page-size=16384` on Android NDK).
-
----
-
-## 🧪 Example
-
-See `example/` for a runnable app that demonstrates the modern controls, gestures, fullscreen, and thumbnails.
+Этот плагин не поставляется с пользовательскими бинарными файлами нативных декодеров. Если вы добавляете нативные библиотеки, свяжите их с максимальным размером страницы, совместимым с 16 КБ системами (например, `-Wl,-z,max-page-size=16384` в Android NDK).
 
 ---
 
-## ⚠️ Platform Support
+## 🧪 Пример
 
-This project is focused exclusively on Android development. iOS support has been removed and will not be provided. All features and documentation are specific to Android implementation only.
-
----
-
-## 📣 Contributing
-
-Issues and PRs are welcome! Please file bugs or ideas at the issue tracker.
+Смотрите `example/` для запускаемого приложения, демонстрирующего современные элементы управления, жесты, полноэкранный режим и миниатюры.
 
 ---
 
-## 📄 License
+## ⚠️ Поддержка платформ
 
-MIT — see `LICENSE`.
+Этот проект сосредоточен исключительно на разработке для Android. Поддержка iOS была удалена и не будет предоставлена. Все функции и документация специфичны только для реализации Android.
+
+---
+
+## 📣 Вклад
+
+Проблемы и PR приветствуются! Пожалуйста, сообщайте об ошибках или идеях в трекере проблем.
+
+---
+
+## 📄 Лицензия
+
+MIT — смотрите `LICENSE`.

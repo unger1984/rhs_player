@@ -7,7 +7,7 @@ import 'package:flutter/gestures.dart';
 import 'player_controller.dart';
 
 /// Отображает только видео текстуру без элементов управления и жестов.
-class RhsPlayerView extends StatefulWidget {
+class RhsPlayerView extends StatelessWidget {
   /// Контроллер для управления воспроизведением
   final RhsPlayerController controller;
 
@@ -17,14 +17,9 @@ class RhsPlayerView extends StatefulWidget {
   const RhsPlayerView({super.key, required this.controller, this.boxFit = BoxFit.contain});
 
   @override
-  State<RhsPlayerView> createState() => _RhsPlayerViewState();
-}
-
-class _RhsPlayerViewState extends State<RhsPlayerView> {
-  @override
   Widget build(BuildContext context) {
     const viewType = 'rhsplayer/native_view';
-    final creationParams = widget.controller.creationParams;
+    final creationParams = controller.creationParams;
 
     Widget platformView;
     if (defaultTargetPlatform == TargetPlatform.android) {
@@ -47,8 +42,8 @@ class _RhsPlayerViewState extends State<RhsPlayerView> {
           );
           controller.addOnPlatformViewCreatedListener(params.onPlatformViewCreated);
           controller.addOnPlatformViewCreatedListener((id) {
-            widget.controller.attachViewId(id);
-            widget.controller.setBoxFit(widget.boxFit);
+            this.controller.attachViewId(id);
+            this.controller.setBoxFit(boxFit);
           });
           controller.create();
           return controller;
@@ -60,8 +55,8 @@ class _RhsPlayerViewState extends State<RhsPlayerView> {
         creationParams: creationParams,
         creationParamsCodec: const services.StandardMessageCodec(),
         onPlatformViewCreated: (id) {
-          widget.controller.attachViewId(id);
-          widget.controller.setBoxFit(widget.boxFit);
+          controller.attachViewId(id);
+          controller.setBoxFit(boxFit);
         },
       );
     } else {
@@ -69,13 +64,5 @@ class _RhsPlayerViewState extends State<RhsPlayerView> {
     }
 
     return platformView;
-  }
-
-  @override
-  void didUpdateWidget(covariant RhsPlayerView oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.boxFit != widget.boxFit) {
-      widget.controller.setBoxFit(widget.boxFit);
-    }
   }
 }

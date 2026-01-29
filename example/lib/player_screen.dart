@@ -4,20 +4,29 @@ import 'package:flutter/services.dart';
 import 'package:rhs_player/rhs_player.dart';
 import 'widgets/player_controls_overlay.dart';
 
-class PlayerScreen extends StatefulWidget {
+class PlayerScreen extends StatelessWidget {
   final bool isLive;
   final bool autoFullscreen;
   const PlayerScreen({super.key, this.isLive = false, this.autoFullscreen = true});
 
   @override
-  State<PlayerScreen> createState() => _PlayerScreenState();
+  Widget build(BuildContext context) {
+    return _PlayerScreenContent(isLive: isLive, autoFullscreen: autoFullscreen);
+  }
 }
 
-class _PlayerScreenState extends State<PlayerScreen> {
+class _PlayerScreenContent extends StatefulWidget {
+  final bool isLive;
+  final bool autoFullscreen;
+  const _PlayerScreenContent({required this.isLive, required this.autoFullscreen});
+
+  @override
+  State<_PlayerScreenContent> createState() => _PlayerScreenContentState();
+}
+
+class _PlayerScreenContentState extends State<_PlayerScreenContent> {
   late RhsPlayerController controller;
-  final List<VoidCallback> _listenerRemovers = [];
-  Timer? _checkEventsTimer;
-  RhsNativeEvents? _events;
+  final List<StreamSubscription> _subscriptions = [];
 
   @override
   void initState() {
@@ -37,23 +46,23 @@ class _PlayerScreenState extends State<PlayerScreen> {
     );
     print('[PlayerScreen] Controller created, events: ${controller.events}');
 
-    // Добавляем слушатели событий
-    _listenerRemovers.add(
-      controller.addProgressListener((position) {
+    // Подписываемся на события через Streams
+    _subscriptions.add(
+      controller.progressStream.listen((position) {
         final minutes = position.inMinutes;
         final seconds = position.inSeconds.remainder(60);
         print('[Progress] Position: ${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}');
       }),
     );
 
-    _listenerRemovers.add(
-      controller.addBufferingListener((isBuffering) {
+    _subscriptions.add(
+      controller.bufferingStream.listen((isBuffering) {
         print('[Buffering] Is buffering: $isBuffering');
       }),
     );
 
-    _listenerRemovers.add(
-      controller.addPlaybackStateListener((state) {
+    _subscriptions.add(
+      controller.playbackStateStream.listen((state) {
         final minutes = state.position.inMinutes;
         final seconds = state.position.inSeconds.remainder(60);
         final durationMinutes = state.duration.inMinutes;
@@ -67,8 +76,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
       }),
     );
 
-    _listenerRemovers.add(
-      controller.addErrorListener((error) {
+    _subscriptions.add(
+      controller.errorStream.listen((error) {
         if (error != null) {
           print('[Error] $error');
         } else {
@@ -76,30 +85,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
         }
       }),
     );
-
-    // Отслеживаем появление событий
-    _checkEvents();
-  }
-
-  void _checkEvents() {
-    // Проверяем события периодически, пока они не появятся
-    _checkEventsTimer?.cancel();
-    _checkEventsTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
-      final events = controller.events;
-      if (events != null && _events != events) {
-        timer.cancel();
-        _checkEventsTimer = null;
-        if (mounted) {
-          setState(() {
-            _events = events;
-          });
-          print('[PlayerScreen] Events initialized!');
-        }
-      } else if (!mounted) {
-        timer.cancel();
-        _checkEventsTimer = null;
-      }
-    });
   }
 
   void _enterFullscreen(BuildContext context) {
@@ -116,21 +101,16 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   @override
   void dispose() {
-    _checkEventsTimer?.cancel();
-    // Удаляем все слушатели
-    for (final remover in _listenerRemovers) {
-      remover();
+    for (final subscription in _subscriptions) {
+      subscription.cancel();
     }
-    _listenerRemovers.clear();
+    _subscriptions.clear();
     controller.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    // Используем сохраненное значение событий или текущее
-    final events = _events ?? controller.events;
-
     return Scaffold(
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -140,39 +120,48 @@ class _PlayerScreenState extends State<PlayerScreen> {
             child: Stack(
               children: [
                 RhsPlayerView(controller: controller, boxFit: BoxFit.contain),
-                // Показываем индикатор загрузки, если события еще не инициализированы
-                if (events == null)
-                  Container(
-                    color: Colors.black,
-                    child: const Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          CircularProgressIndicator(color: Colors.white),
-                          SizedBox(height: 16),
-                          Text('Initializing player...', style: TextStyle(color: Colors.white)),
-                        ],
-                      ),
-                    ),
-                  ),
-                if (events != null)
-                  ValueListenableBuilder<RhsPlaybackState>(
-                    valueListenable: events.state,
-                    builder: (context, state, _) {
-                      return ValueListenableBuilder<String?>(
-                        valueListenable: events.error,
-                        builder: (context, error, __) {
-                          return PlayerControlsOverlay(
-                            controller: controller,
-                            state: state,
-                            error: error,
-                            formatDuration: _formatDuration,
-                            onFullscreen: () => _enterFullscreen(context),
-                          );
-                        },
+                // Используем StreamBuilder для отслеживания событий
+                StreamBuilder<RhsNativeEvents?>(
+                  stream: controller.eventsStream,
+                  builder: (context, eventsSnapshot) {
+                    // Показываем индикатор загрузки, если события еще не инициализированы
+                    if (!eventsSnapshot.hasData || eventsSnapshot.data == null) {
+                      return Container(
+                        color: Colors.black,
+                        child: const Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              CircularProgressIndicator(color: Colors.white),
+                              SizedBox(height: 16),
+                              Text('Initializing player...', style: TextStyle(color: Colors.white)),
+                            ],
+                          ),
+                        ),
                       );
-                    },
-                  ),
+                    }
+
+                    final events = eventsSnapshot.data!;
+                    // Используем StreamBuilder для состояния воспроизведения и ошибок
+                    return StreamBuilder<RhsPlaybackState>(
+                      stream: controller.playbackStateStream,
+                      builder: (context, stateSnapshot) {
+                        return StreamBuilder<String?>(
+                          stream: controller.errorStream,
+                          builder: (context, errorSnapshot) {
+                            return PlayerControlsOverlay(
+                              controller: controller,
+                              state: stateSnapshot.data ?? events.state.value,
+                              error: errorSnapshot.data ?? events.error.value,
+                              formatDuration: _formatDuration,
+                              onFullscreen: () => _enterFullscreen(context),
+                            );
+                          },
+                        );
+                      },
+                    );
+                  },
+                ),
               ],
             ),
           ),
@@ -183,50 +172,39 @@ class _PlayerScreenState extends State<PlayerScreen> {
 }
 
 /// Полноэкранная страница для воспроизведения видео
-class _FullscreenPlayerPage extends StatefulWidget {
+class _FullscreenPlayerPage extends StatelessWidget {
   final RhsPlayerController controller;
 
   const _FullscreenPlayerPage({required this.controller});
 
   @override
-  State<_FullscreenPlayerPage> createState() => _FullscreenPlayerPageState();
+  Widget build(BuildContext context) {
+    return _FullscreenPlayerPageContent(controller: controller);
+  }
 }
 
-class _FullscreenPlayerPageState extends State<_FullscreenPlayerPage> {
-  Timer? _checkEventsTimer;
-  RhsNativeEvents? _events;
+class _FullscreenPlayerPageContent extends StatefulWidget {
+  final RhsPlayerController controller;
 
+  const _FullscreenPlayerPageContent({required this.controller});
+
+  @override
+  State<_FullscreenPlayerPageContent> createState() => _FullscreenPlayerPageContentState();
+}
+
+class _FullscreenPlayerPageContentState extends State<_FullscreenPlayerPageContent> {
   @override
   void initState() {
     super.initState();
     SystemChrome.setPreferredOrientations([DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-    _events = widget.controller.events;
-    _checkEvents();
   }
 
   @override
   void dispose() {
-    _checkEventsTimer?.cancel();
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp, DeviceOrientation.portraitDown]);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
-  }
-
-  void _checkEvents() {
-    Timer.periodic(const Duration(milliseconds: 100), (timer) {
-      final events = widget.controller.events;
-      if (events != null && _events != events) {
-        timer.cancel();
-        if (mounted) {
-          setState(() {
-            _events = events;
-          });
-        }
-      } else if (!mounted) {
-        timer.cancel();
-      }
-    });
   }
 
   String _formatDuration(Duration duration) {
@@ -237,8 +215,6 @@ class _FullscreenPlayerPageState extends State<_FullscreenPlayerPage> {
 
   @override
   Widget build(BuildContext context) {
-    final events = _events ?? widget.controller.events;
-
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
@@ -249,24 +225,35 @@ class _FullscreenPlayerPageState extends State<_FullscreenPlayerPage> {
         child: Stack(
           children: [
             RhsPlayerView(controller: widget.controller, boxFit: BoxFit.contain),
-            if (events != null)
-              ValueListenableBuilder<RhsPlaybackState>(
-                valueListenable: events.state,
-                builder: (context, state, _) {
-                  return ValueListenableBuilder<String?>(
-                    valueListenable: events.error,
-                    builder: (context, error, __) {
-                      return PlayerControlsOverlay(
-                        controller: widget.controller,
-                        state: state,
-                        error: error,
-                        formatDuration: _formatDuration,
-                        onFullscreen: () => Navigator.of(context).pop(),
-                      );
-                    },
-                  );
-                },
-              ),
+            // Используем StreamBuilder для отслеживания событий
+            StreamBuilder<RhsNativeEvents?>(
+              stream: widget.controller.eventsStream,
+              builder: (context, eventsSnapshot) {
+                if (!eventsSnapshot.hasData || eventsSnapshot.data == null) {
+                  return const SizedBox.shrink();
+                }
+
+                final events = eventsSnapshot.data!;
+                // Используем StreamBuilder для состояния воспроизведения и ошибок
+                return StreamBuilder<RhsPlaybackState>(
+                  stream: widget.controller.playbackStateStream,
+                  builder: (context, stateSnapshot) {
+                    return StreamBuilder<String?>(
+                      stream: widget.controller.errorStream,
+                      builder: (context, errorSnapshot) {
+                        return PlayerControlsOverlay(
+                          controller: widget.controller,
+                          state: stateSnapshot.data ?? events.state.value,
+                          error: errorSnapshot.data ?? events.error.value,
+                          formatDuration: _formatDuration,
+                          onFullscreen: () => Navigator.of(context).pop(),
+                        );
+                      },
+                    );
+                  },
+                );
+              },
+            ),
           ],
         ),
       ),

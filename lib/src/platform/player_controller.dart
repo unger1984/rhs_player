@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
+import 'package:rxdart/rxdart.dart';
 
 import '../core/media_source.dart';
 import '../core/drm.dart';
@@ -43,26 +44,38 @@ class RhsPlayerController {
   /// Флаг состояния воспроизведения перед паузой
   bool _wasPlaying = false;
 
-  /// Слушатель событий изменения состояния
-  VoidCallback? _eventsListener;
+  /// Подписка на события состояния
+  StreamSubscription<RhsPlaybackState>? _stateSubscription;
+
+  /// Подписка на события ошибок
+  StreamSubscription<String?>? _errorSubscription;
+
+  /// Контроллеры потоков для ValueNotifier
+  StreamController<RhsPlaybackState>? _stateController;
+  StreamController<String?>? _errorController;
 
   /// Флаг режима экономии трафика
   bool _dataSaver = false;
 
-  /// Список слушателей прогресса воспроизведения
-  final List<ValueChanged<Duration>> _progressListeners = [];
+  /// Stream прогресса воспроизведения
+  final BehaviorSubject<Duration> _progressSubject = BehaviorSubject<Duration>.seeded(Duration.zero);
 
-  /// Список слушателей состояния буферизации
-  final List<ValueChanged<bool>> _bufferingListeners = [];
+  /// Stream состояния буферизации
+  final BehaviorSubject<bool> _bufferingSubject = BehaviorSubject<bool>.seeded(false);
 
-  /// Список слушателей состояния воспроизведения
-  final List<ValueChanged<RhsPlaybackState>> _playbackStateListeners = [];
+  /// Stream состояния воспроизведения
+  final BehaviorSubject<RhsPlaybackState> _playbackStateSubject = BehaviorSubject<RhsPlaybackState>.seeded(
+    const RhsPlaybackState(position: Duration.zero, duration: Duration.zero, isPlaying: false, isBuffering: false),
+  );
 
-  /// Список слушателей изменений дорожек
-  final List<VoidCallback> _tracksListeners = [];
+  /// Stream изменений дорожек
+  final PublishSubject<void> _tracksSubject = PublishSubject<void>();
 
-  /// Список слушателей ошибок
-  final List<ValueChanged<String?>> _errorListeners = [];
+  /// Stream ошибок
+  final BehaviorSubject<String?> _errorSubject = BehaviorSubject<String?>.seeded(null);
+
+  /// Stream событий (для обратной совместимости)
+  final BehaviorSubject<RhsNativeEvents?> _eventsSubject = BehaviorSubject<RhsNativeEvents?>.seeded(null);
 
   /// Создает контроллер с одним медиа элементом.
   RhsPlayerController.single(
@@ -104,40 +117,50 @@ class RhsPlayerController {
     _channel = MethodChannel('rhsplayer/view_$id');
     // Перепривязывает события; освобождает предыдущие для избежания утечек
     if (_events != null) {
-      if (_eventsListener != null) {
-        _events!.state.removeListener(_eventsListener!);
-      }
+      _stateSubscription?.cancel();
+      _errorSubscription?.cancel();
+      _stateController?.close();
+      _errorController?.close();
       _events!.dispose();
     }
     final ev = RhsNativeEvents(id);
     ev.start();
     _events = ev;
-    _eventsListener = () {
-      final v = ev.state.value;
-      _resumePositionMs = v.position.inMilliseconds;
-      _wasPlaying = v.isPlaying;
-      // Уведомляем всех слушателей
-      for (final listener in _progressListeners) {
-        listener(v.position);
-      }
-      for (final listener in _bufferingListeners) {
-        listener(v.isBuffering);
-      }
-      for (final listener in _playbackStateListeners) {
-        listener(v);
-      }
-    };
-    ev.state.addListener(_eventsListener!);
+    _eventsSubject.add(ev);
+
+    // Подписываемся на изменения состояния
+    _stateSubscription = _listenToStateNotifier(ev.state).listen((state) {
+      _resumePositionMs = state.position.inMilliseconds;
+      _wasPlaying = state.isPlaying;
+      _progressSubject.add(state.position);
+      _bufferingSubject.add(state.isBuffering);
+      _playbackStateSubject.add(state);
+    });
+
     // Подписываемся на ошибки
-    ev.error.addListener(_errorListener);
+    _errorSubscription = _listenToErrorNotifier(ev.error).listen((error) {
+      _errorSubject.add(error);
+    });
   }
 
-  /// Обработчик изменений ошибок
-  void _errorListener() {
-    final error = _events?.error.value;
-    for (final listener in _errorListeners) {
-      listener(error);
-    }
+  /// Преобразует ValueNotifier в Stream для состояния воспроизведения
+  Stream<RhsPlaybackState> _listenToStateNotifier(ValueNotifier<RhsPlaybackState> notifier) {
+    _stateController?.close();
+    _stateController = StreamController<RhsPlaybackState>.broadcast();
+    void listener() => _stateController!.add(notifier.value);
+    notifier.addListener(listener);
+    _stateController!.onCancel = () => notifier.removeListener(listener);
+    return _stateController!.stream;
+  }
+
+  /// Преобразует ValueNotifier в Stream для ошибок
+  Stream<String?> _listenToErrorNotifier(ValueNotifier<String?> notifier) {
+    _errorController?.close();
+    _errorController = StreamController<String?>.broadcast();
+    void listener() => _errorController!.add(notifier.value);
+    notifier.addListener(listener);
+    _errorController!.onCancel = () => notifier.removeListener(listener);
+    return _errorController!.stream;
   }
 
   /// Преобразует конфигурацию DRM в карту для передачи в нативный код
@@ -196,9 +219,7 @@ class RhsPlayerController {
         .map(RhsVideoTrack.fromMap)
         .toList();
     // Уведомляем слушателей об изменении дорожек
-    for (final listener in _tracksListeners) {
-      listener();
-    }
+    _tracksSubject.add(null);
     return tracks;
   }
 
@@ -206,18 +227,14 @@ class RhsPlayerController {
   Future<void> selectVideoTrack(String trackId) async {
     await _invoke('setVideoTrack', {'id': trackId});
     // Уведомляем слушателей об изменении дорожек
-    for (final listener in _tracksListeners) {
-      listener();
-    }
+    _tracksSubject.add(null);
   }
 
   /// Очищает ручные переопределения дорожек и возвращается к автоматическому выбору.
   Future<void> clearVideoTrackSelection() async {
     await _invoke('setVideoTrack', {'id': null});
     // Уведомляем слушателей об изменении дорожек
-    for (final listener in _tracksListeners) {
-      listener();
-    }
+    _tracksSubject.add(null);
   }
 
   /// Получает доступные аудио дорожки.
@@ -230,9 +247,7 @@ class RhsPlayerController {
         .map(RhsAudioTrack.fromMap)
         .toList();
     // Уведомляем слушателей об изменении дорожек
-    for (final listener in _tracksListeners) {
-      listener();
-    }
+    _tracksSubject.add(null);
     return tracks;
   }
 
@@ -240,9 +255,7 @@ class RhsPlayerController {
   Future<void> selectAudioTrack(String? trackId) async {
     await _invoke('setAudioTrack', {'id': trackId});
     // Уведомляем слушателей об изменении дорожек
-    for (final listener in _tracksListeners) {
-      listener();
-    }
+    _tracksSubject.add(null);
   }
 
   /// Получает дорожки субтитров / титров.
@@ -255,9 +268,7 @@ class RhsPlayerController {
         .map(RhsSubtitleTrack.fromMap)
         .toList();
     // Уведомляем слушателей об изменении дорожек
-    for (final listener in _tracksListeners) {
-      listener();
-    }
+    _tracksSubject.add(null);
     return tracks;
   }
 
@@ -265,9 +276,7 @@ class RhsPlayerController {
   Future<void> selectSubtitleTrack(String? trackId) async {
     await _invoke('setSubtitleTrack', {'id': trackId});
     // Уведомляем слушателей об изменении дорожек
-    for (final listener in _tracksListeners) {
-      listener();
-    }
+    _tracksSubject.add(null);
   }
 
   /// Запрашивает режим "картинка в картинке", где поддерживается.
@@ -279,76 +288,90 @@ class RhsPlayerController {
   /// Освобождает нативные ресурсы.
   Future<void> dispose() async {
     await _invoke('dispose');
-    if (_events != null) {
-      if (_eventsListener != null) {
-        _events!.state.removeListener(_eventsListener!);
-      }
-      _events!.error.removeListener(_errorListener);
-      _events?.dispose();
-    }
-    _progressListeners.clear();
-    _bufferingListeners.clear();
-    _playbackStateListeners.clear();
-    _tracksListeners.clear();
-    _errorListeners.clear();
+    _stateSubscription?.cancel();
+    _errorSubscription?.cancel();
+    _stateController?.close();
+    _errorController?.close();
+    _events?.dispose();
+    await _progressSubject.close();
+    await _bufferingSubject.close();
+    await _playbackStateSubject.close();
+    await _tracksSubject.close();
+    await _errorSubject.close();
+    await _eventsSubject.close();
   }
 
-  /// События воспроизведения, генерируемые нативным слоем.
+  /// События воспроизведения, генерируемые нативным слоем (для обратной совместимости).
   RhsNativeEvents? get events => _events;
+
+  /// Stream прогресса воспроизведения
+  Stream<Duration> get progressStream => _progressSubject.stream;
+
+  /// Stream состояния буферизации
+  Stream<bool> get bufferingStream => _bufferingSubject.stream;
+
+  /// Stream состояния воспроизведения
+  Stream<RhsPlaybackState> get playbackStateStream => _playbackStateSubject.stream;
+
+  /// Stream изменений дорожек
+  Stream<void> get tracksStream => _tracksSubject.stream;
+
+  /// Stream ошибок воспроизведения
+  Stream<String?> get errorStream => _errorSubject.stream;
+
+  /// Stream событий (для обратной совместимости)
+  Stream<RhsNativeEvents?> get eventsStream => _eventsSubject.stream;
+
+  /// Текущее состояние воспроизведения
+  RhsPlaybackState get currentPlaybackState => _playbackStateSubject.value;
+
+  /// Текущая позиция воспроизведения
+  Duration get currentPosition => _progressSubject.value;
+
+  /// Текущее состояние буферизации
+  bool get isBuffering => _bufferingSubject.value;
+
+  /// Текущая ошибка воспроизведения
+  String? get currentError => _errorSubject.value;
 
   /// Добавляет слушатель прогресса воспроизведения.
   /// Возвращает функцию для удаления слушателя.
+  /// @deprecated Используйте [progressStream] вместо этого
   VoidCallback addProgressListener(ValueChanged<Duration> listener) {
-    _progressListeners.add(listener);
-    // Немедленно вызываем с текущей позицией, если события уже инициализированы
-    final currentState = _events?.state.value;
-    if (currentState != null) {
-      listener(currentState.position);
-    }
-    return () => _progressListeners.remove(listener);
+    final subscription = progressStream.listen(listener);
+    return () => subscription.cancel();
   }
 
   /// Добавляет слушатель состояния буферизации.
   /// Возвращает функцию для удаления слушателя.
+  /// @deprecated Используйте [bufferingStream] вместо этого
   VoidCallback addBufferingListener(ValueChanged<bool> listener) {
-    _bufferingListeners.add(listener);
-    // Немедленно вызываем с текущим состоянием, если события уже инициализированы
-    final currentState = _events?.state.value;
-    if (currentState != null) {
-      listener(currentState.isBuffering);
-    }
-    return () => _bufferingListeners.remove(listener);
+    final subscription = bufferingStream.listen(listener);
+    return () => subscription.cancel();
   }
 
   /// Добавляет слушатель состояния воспроизведения.
   /// Возвращает функцию для удаления слушателя.
+  /// @deprecated Используйте [playbackStateStream] вместо этого
   VoidCallback addPlaybackStateListener(ValueChanged<RhsPlaybackState> listener) {
-    _playbackStateListeners.add(listener);
-    // Немедленно вызываем с текущим состоянием, если события уже инициализированы
-    final currentState = _events?.state.value;
-    if (currentState != null) {
-      listener(currentState);
-    }
-    return () => _playbackStateListeners.remove(listener);
+    final subscription = playbackStateStream.listen(listener);
+    return () => subscription.cancel();
   }
 
   /// Добавляет слушатель изменений дорожек.
   /// Возвращает функцию для удаления слушателя.
+  /// @deprecated Используйте [tracksStream] вместо этого
   VoidCallback addTracksListener(VoidCallback listener) {
-    _tracksListeners.add(listener);
-    return () => _tracksListeners.remove(listener);
+    final subscription = tracksStream.listen((_) => listener());
+    return () => subscription.cancel();
   }
 
   /// Добавляет слушатель ошибок воспроизведения.
   /// Возвращает функцию для удаления слушателя.
+  /// @deprecated Используйте [errorStream] вместо этого
   VoidCallback addErrorListener(ValueChanged<String?> listener) {
-    _errorListeners.add(listener);
-    // Немедленно вызываем с текущей ошибкой, если она есть
-    final currentError = _events?.error.value;
-    if (currentError != null) {
-      listener(currentError);
-    }
-    return () => _errorListeners.remove(listener);
+    final subscription = errorStream.listen(listener);
+    return () => subscription.cancel();
   }
 
   /// Вызывает метод нативного кода без возвращаемого значения

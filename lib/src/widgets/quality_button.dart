@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:rhs_player/rhs_player.dart';
+
+import '../theme/player_style.dart';
+import '../utils/player_utils.dart';
 
 /// Кнопка выбора качества видео
 /// Подписывается на события треков от контроллера
@@ -23,8 +25,8 @@ class QualityButton extends StatefulWidget {
 class _QualityButtonState extends State<QualityButton> {
   List<RhsVideoTrack> _tracks = [];
   String? _selectedTrackId;
-  final GlobalKey<PopupMenuButtonState<String>> _popupMenuKey = GlobalKey<PopupMenuButtonState<String>>();
-  bool _isFocused = false;
+  final GlobalKey<PopupMenuButtonState<String>> _popupMenuKey =
+      GlobalKey<PopupMenuButtonState<String>>();
 
   @override
   void initState() {
@@ -108,7 +110,6 @@ class _QualityButtonState extends State<QualityButton> {
     }
   }
 
-  /// Построение строки меню
   Widget _buildMenuRow({required String label, required bool isSelected}) {
     return SizedBox(
       width: 120,
@@ -116,19 +117,19 @@ class _QualityButtonState extends State<QualityButton> {
         children: [
           SizedBox(
             width: 24,
-            child: isSelected ? const Icon(Icons.check, size: 18, color: Colors.white) : const SizedBox(),
+            child: isSelected
+                ? const Icon(Icons.check, size: 18, color: Colors.white)
+                : const SizedBox(),
           ),
           Expanded(
-            child: Text(label, style: const TextStyle(color: Colors.white, fontSize: 14)),
+            child: Text(
+              label,
+              style: const TextStyle(color: Colors.white, fontSize: 14),
+            ),
           ),
         ],
       ),
     );
-  }
-
-  /// Программно открывает меню (для вызова с пульта)
-  void showMenu() {
-    _popupMenuKey.currentState?.showButtonMenu();
   }
 
   /// Построение элементов меню
@@ -168,51 +169,21 @@ class _QualityButtonState extends State<QualityButton> {
 
   @override
   Widget build(BuildContext context) {
-    // Не показываем кнопку пока не загружены треки и не определен выбранный трек
     if (_tracks.isEmpty || _selectedTrackId == null) {
       return const SizedBox.shrink();
     }
-
-    // Тема для выпадающего меню: светлое выделение на тёмном фоне (чтобы фокус был виден)
-    final menuTheme = Theme.of(context).copyWith(
-      highlightColor: Colors.white.withValues(alpha: 0.25),
-      hoverColor: Colors.white.withValues(alpha: 0.2),
-      focusColor: Colors.white.withValues(alpha: 0.3),
-      splashColor: Colors.white.withValues(alpha: 0.15),
-    );
-
     return Theme(
-      data: menuTheme,
-      child: Focus(
-      focusNode: widget.focusNode,
-      onFocusChange: (focused) {
-        setState(() {
-          _isFocused = focused;
-        });
-      },
-      onKeyEvent: (node, event) {
-        if (event is KeyDownEvent &&
-            (event.logicalKey == LogicalKeyboardKey.select ||
-                event.logicalKey == LogicalKeyboardKey.enter ||
-                event.logicalKey == LogicalKeyboardKey.space)) {
+      data: playerMenuTheme(context),
+      child: FocusableControlButton(
+        focusNode: widget.focusNode,
+        onPressed: () {
           widget.onInteraction?.call();
-          showMenu();
-          return KeyEventResult.handled;
-        }
-        return KeyEventResult.ignored;
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        decoration: BoxDecoration(
-          border: _isFocused ? Border.all(color: Colors.white, width: 2) : null,
-          borderRadius: BorderRadius.circular(8),
-          color: _isFocused ? Colors.white.withValues(alpha: 0.2) : Colors.transparent,
-        ),
-        padding: const EdgeInsets.all(8),
+          _popupMenuKey.currentState?.showButtonMenu();
+        },
         child: PopupMenuButton<String>(
           key: _popupMenuKey,
           tooltip: 'Video Quality',
-          color: const Color(0xFF1F1F1F),
+          color: PlayerStyle.menuBackground,
           surfaceTintColor: Colors.transparent,
           padding: EdgeInsets.zero,
           position: PopupMenuPosition.over,
@@ -221,12 +192,15 @@ class _QualityButtonState extends State<QualityButton> {
           child: Center(
             child: Text(
               _buttonText,
-              style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ),
       ),
-    ),
     );
   }
 }

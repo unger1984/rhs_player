@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:rhs_player/rhs_player.dart';
 
+import '../theme/player_style.dart';
+
 class ProgressBar extends StatelessWidget {
   final RhsPlaybackState state;
   final RhsPlayerController controller;
@@ -22,31 +24,36 @@ class ProgressBar extends StatelessWidget {
       child: Column(
         children: [
           SizedBox(
-            height: 48,
+            height: PlayerStyle.progressBarHeight,
             child: Stack(
               alignment: Alignment.center,
               children: [
-                // Фоновая дорожка и буферизованная область с отступами как у Slider
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: PlayerStyle.progressBarHorizontalPadding,
+                  ),
                   child: Stack(
                     children: [
-                      // Фоновая дорожка (не загружено)
                       Container(
-                        height: 2,
+                        height: PlayerStyle.progressTrackHeight,
                         decoration: BoxDecoration(
                           color: Colors.white24,
                           borderRadius: BorderRadius.circular(1),
                         ),
                       ),
-                      // Буферизованная область (загружено)
                       LayoutBuilder(
                         builder: (context, constraints) {
                           final totalWidth = constraints.maxWidth;
-                          final duration = state.duration.inMilliseconds.toDouble().clamp(1, double.infinity);
-                          final bufferedWidth = (state.bufferedPosition.inMilliseconds / duration * totalWidth).clamp(0.0, totalWidth);
+                          final duration = state.duration.inMilliseconds
+                              .toDouble()
+                              .clamp(1, double.infinity);
+                          final bufferedWidth = (state.bufferedPosition
+                                      .inMilliseconds /
+                                  duration *
+                                  totalWidth)
+                              .clamp(0.0, totalWidth);
                           return Container(
-                            height: 2,
+                            height: PlayerStyle.progressTrackHeight,
                             width: bufferedWidth,
                             decoration: BoxDecoration(
                               color: Colors.white38,
@@ -58,15 +65,18 @@ class ProgressBar extends StatelessWidget {
                     ],
                   ),
                 ),
-                // Слайдер для текущей позиции
                 SliderTheme(
                   data: SliderTheme.of(context).copyWith(
-                    trackHeight: 2,
-                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                    trackHeight: PlayerStyle.progressTrackHeight,
+                    thumbShape: RoundSliderThumbShape(
+                      enabledThumbRadius: PlayerStyle.sliderThumbRadius,
+                    ),
                     activeTrackColor: Colors.white,
                     inactiveTrackColor: Colors.transparent,
                     thumbColor: Colors.white,
-                    overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+                    overlayShape: RoundSliderOverlayShape(
+                      overlayRadius: PlayerStyle.sliderOverlayRadius,
+                    ),
                   ),
                   child: Slider(
                     min: 0,

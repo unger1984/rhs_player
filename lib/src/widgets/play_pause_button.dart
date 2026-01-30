@@ -1,5 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:rhs_player/rhs_player.dart';
+
+import '../theme/player_style.dart';
 
 class PlayPauseButton extends StatefulWidget {
   final RhsPlayerController controller;
@@ -19,30 +22,24 @@ class PlayPauseButton extends StatefulWidget {
 
 class _PlayPauseButtonState extends State<PlayPauseButton> {
   RhsNativeEvents? _events;
-  /// Намерение пользователя: null = следовать за isPlaying, true = показывать pause, false = показывать play
+  StreamSubscription<RhsNativeEvents?>? _eventsSubscription;
   bool? _userIntent;
   bool _wasBuffering = false;
 
   @override
   void initState() {
     super.initState();
-    _checkEvents();
-  }
-
-  void _checkEvents() {
-    final events = widget.controller.events;
-    if (events != null && _events != events) {
-      if (_events != null) {
-        _events!.state.removeListener(_onStateChanged);
+    _eventsSubscription = widget.controller.eventsStream.listen((events) {
+      if (!mounted) return;
+      if (_events != events) {
+        _events?.state.removeListener(_onStateChanged);
+        _events = events;
+        if (events != null) {
+          events.state.addListener(_onStateChanged);
+        }
+        _onStateChanged();
       }
-      _events = events;
-      events.state.addListener(_onStateChanged);
-      _onStateChanged();
-    } else if (events == null) {
-      Future.delayed(const Duration(milliseconds: 100), () {
-        if (mounted) _checkEvents();
-      });
-    }
+    });
   }
 
   void _onStateChanged() {
@@ -51,8 +48,8 @@ class _PlayPauseButtonState extends State<PlayPauseButton> {
     if (state == null) return;
 
     setState(() {
-      // Когда буферизация заканчивается — синхронизируем intent с реальным состоянием
-      if (_wasBuffering && !state.isBuffering) {
+      // Синхронизируем с фактическим состоянием (пауза/play с пульта или извне).
+      if (!state.isBuffering) {
         _userIntent = state.isPlaying;
       }
       _wasBuffering = state.isBuffering;
@@ -61,29 +58,33 @@ class _PlayPauseButtonState extends State<PlayPauseButton> {
 
   @override
   void dispose() {
+    _eventsSubscription?.cancel();
     _events?.state.removeListener(_onStateChanged);
     super.dispose();
   }
 
   bool get _showAsPlaying {
-    // Если есть намерение пользователя — показываем его
-    if (_userIntent != null) return _userIntent!;
-    // Иначе следуем за реальным isPlaying
-    return _events?.state.value.isPlaying ?? false;
+    final state = _events?.state.value;
+    if (state == null) return false;
+    // Во время буферизации показываем намерение пользователя, иначе — фактическое состояние.
+    if (state.isBuffering) return _userIntent ?? state.isPlaying;
+    return state.isPlaying;
   }
 
   @override
   Widget build(BuildContext context) {
     return IconButton(
-      icon: Icon(_showAsPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled, color: Colors.white, size: 64),
+      icon: Icon(
+        _showAsPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled,
+        color: Colors.white,
+        size: PlayerStyle.playPauseIconSize,
+      ),
       onPressed: () {
         widget.onInteraction?.call();
         final currentIsPlaying = _showAsPlaying;
-        // Запоминаем намерение пользователя
         setState(() {
           _userIntent = !currentIsPlaying;
         });
-        // Вызываем соответствующее действие
         if (currentIsPlaying) {
           widget.controller.pause();
         } else {

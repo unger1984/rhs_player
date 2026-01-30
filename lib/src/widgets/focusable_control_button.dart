@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../theme/player_style.dart';
+
 /// Кнопка управления с поддержкой фокуса для Android TV
 class FocusableControlButton extends StatefulWidget {
   final Widget child;
@@ -56,12 +58,12 @@ class _FocusableControlButtonState extends State<FocusableControlButton> {
             ? (_) => widget.onLongPressEnd?.call()
             : null,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
+          duration: Duration(milliseconds: PlayerStyle.focusAnimationMs),
           decoration: BoxDecoration(
             border: _isFocused
                 ? Border.all(color: Colors.white, width: 2)
                 : null,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(PlayerStyle.focusBorderRadius),
             color: _isFocused
                 ? Colors.white.withValues(alpha: 0.2)
                 : Colors.transparent,

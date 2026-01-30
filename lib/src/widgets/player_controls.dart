@@ -3,15 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:rhs_player/rhs_player.dart';
 
-String _defaultFormatDuration(Duration duration) {
-  final hours = duration.inHours;
-  final minutes = duration.inMinutes.remainder(60);
-  final seconds = duration.inSeconds.remainder(60);
-  if (hours > 0) {
-    return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
-  }
-  return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
-}
+import '../utils/player_utils.dart';
+import 'fullscreen_player_page.dart';
+
+/// Количество фокусируемых контролов: progressBar, quality, audio, rewind, playPause, forward, fullscreen.
+const int _focusCount = 7;
 
 class PlayerControls extends StatefulWidget {
   final RhsPlayerController controller;
@@ -40,27 +36,21 @@ class _PlayerControlsState extends State<PlayerControls> {
   Timer? _hideControlsTimer;
   bool _initialHideTimerStarted = false;
   bool _videoEnded = false;
-  
-  // FocusNodes для навигации
+
   final FocusNode _rootFocusNode = FocusNode();
-  final FocusNode _progressBarFocusNode = FocusNode();
-  final FocusNode _qualityFocusNode = FocusNode();
-  final FocusNode _audioFocusNode = FocusNode();
-  final FocusNode _rewindFocusNode = FocusNode();
-  final FocusNode _playPauseFocusNode = FocusNode();
-  final FocusNode _forwardFocusNode = FocusNode();
-  final FocusNode _fullscreenFocusNode = FocusNode();
-  
-  // GlobalKeys для доступа к виджетам QualityButton и AudioTrackButton
-  final GlobalKey _qualityButtonKey = GlobalKey();
-  final GlobalKey _audioButtonKey = GlobalKey();
-  
+  late final List<FocusNode> _focusNodes = List.generate(
+    _focusCount,
+    (_) => FocusNode(),
+  );
+  int? _lastFocusedIndex;
+
   Timer? _seekTimer;
   bool _isSeeking = false;
-  int _seekCount = 0; // Счетчик для ускорения перемотки
-  FocusNode? _lastFocusedNode; // Сохраняем последний сфокусированный узел
+  int _seekCount = 0;
 
-  bool get _isVideoEnded => widget.state.duration > Duration.zero && widget.state.position >= widget.state.duration;
+  bool get _isVideoEnded =>
+      widget.state.duration > Duration.zero &&
+      widget.state.position >= widget.state.duration;
 
   @override
   void initState() {
@@ -69,38 +59,20 @@ class _PlayerControlsState extends State<PlayerControls> {
       _initialHideTimerStarted = true;
       _startHideTimer();
     }
-    
-    // Добавляем слушатели фокуса для сохранения последнего фокуса
-    _progressBarFocusNode.addListener(_onFocusChange);
-    _qualityFocusNode.addListener(_onFocusChange);
-    _audioFocusNode.addListener(_onFocusChange);
-    _rewindFocusNode.addListener(_onFocusChange);
-    _playPauseFocusNode.addListener(_onFocusChange);
-    _forwardFocusNode.addListener(_onFocusChange);
-    _fullscreenFocusNode.addListener(_onFocusChange);
-    
-    // Восстанавливаем фокус из переданного индекса
+    for (final node in _focusNodes) {
+      node.addListener(_onFocusChange);
+    }
     if (widget.initialFocusIndex != null) {
       Future.microtask(() => _setFocusByIndex(widget.initialFocusIndex!));
     }
   }
-  
+
   void _onFocusChange() {
-    // Сохраняем узел, который получил фокус
-    if (_progressBarFocusNode.hasFocus) {
-      _lastFocusedNode = _progressBarFocusNode;
-    } else if (_qualityFocusNode.hasFocus) {
-      _lastFocusedNode = _qualityFocusNode;
-    } else if (_audioFocusNode.hasFocus) {
-      _lastFocusedNode = _audioFocusNode;
-    } else if (_rewindFocusNode.hasFocus) {
-      _lastFocusedNode = _rewindFocusNode;
-    } else if (_playPauseFocusNode.hasFocus) {
-      _lastFocusedNode = _playPauseFocusNode;
-    } else if (_forwardFocusNode.hasFocus) {
-      _lastFocusedNode = _forwardFocusNode;
-    } else if (_fullscreenFocusNode.hasFocus) {
-      _lastFocusedNode = _fullscreenFocusNode;
+    for (var i = 0; i < _focusNodes.length; i++) {
+      if (_focusNodes[i].hasFocus) {
+        _lastFocusedIndex = i;
+        return;
+      }
     }
   }
 
@@ -129,24 +101,11 @@ class _PlayerControlsState extends State<PlayerControls> {
   void dispose() {
     _hideControlsTimer?.cancel();
     _seekTimer?.cancel();
-    
-    // Удаляем слушатели перед dispose
-    _progressBarFocusNode.removeListener(_onFocusChange);
-    _qualityFocusNode.removeListener(_onFocusChange);
-    _audioFocusNode.removeListener(_onFocusChange);
-    _rewindFocusNode.removeListener(_onFocusChange);
-    _playPauseFocusNode.removeListener(_onFocusChange);
-    _forwardFocusNode.removeListener(_onFocusChange);
-    _fullscreenFocusNode.removeListener(_onFocusChange);
-    
+    for (final node in _focusNodes) {
+      node.removeListener(_onFocusChange);
+      node.dispose();
+    }
     _rootFocusNode.dispose();
-    _progressBarFocusNode.dispose();
-    _qualityFocusNode.dispose();
-    _audioFocusNode.dispose();
-    _rewindFocusNode.dispose();
-    _playPauseFocusNode.dispose();
-    _forwardFocusNode.dispose();
-    _fullscreenFocusNode.dispose();
     super.dispose();
   }
 
@@ -165,12 +124,14 @@ class _PlayerControlsState extends State<PlayerControls> {
   void _showControlsTemporarily({LogicalKeyboardKey? triggeredByKey}) {
     if (!_showControls) {
       setState(() => _showControls = true);
-      // Если контролы показаны с пульта
       if (triggeredByKey != null) {
         Future.microtask(() {
-          // Восстанавливаем последний фокус или устанавливаем новый
-          if (_lastFocusedNode != null && _lastFocusedNode!.canRequestFocus) {
-            _lastFocusedNode!.requestFocus();
+          final idx = _lastFocusedIndex;
+          if (idx != null &&
+              idx >= 0 &&
+              idx < _focusNodes.length &&
+              _focusNodes[idx].canRequestFocus) {
+            _focusNodes[idx].requestFocus();
           } else {
             _setInitialFocus(triggeredByKey);
           }
@@ -179,87 +140,41 @@ class _PlayerControlsState extends State<PlayerControls> {
     }
     _startHideTimer();
   }
-  
-  // Проверяем, есть ли фокус на каком-либо контроле
-  bool _hasAnyFocus() {
-    return _progressBarFocusNode.hasFocus ||
-        _qualityFocusNode.hasFocus ||
-        _audioFocusNode.hasFocus ||
-        _rewindFocusNode.hasFocus ||
-        _playPauseFocusNode.hasFocus ||
-        _forwardFocusNode.hasFocus ||
-        _fullscreenFocusNode.hasFocus;
-  }
-  
-  // Устанавливаем фокус в зависимости от нажатой клавиши
+
+  bool _hasAnyFocus() => _focusNodes.any((n) => n.hasFocus);
+
   void _setInitialFocus(LogicalKeyboardKey key) {
     if (key == LogicalKeyboardKey.arrowUp) {
-      // При нажатии вверх выбираем кнопки в нижнем ряду (Play/Pause)
-      _playPauseFocusNode.requestFocus();
-    } else if (key == LogicalKeyboardKey.arrowLeft || key == LogicalKeyboardKey.arrowRight) {
-      _qualityFocusNode.requestFocus();
+      _focusNodes[4].requestFocus();
+    } else if (key == LogicalKeyboardKey.arrowLeft ||
+        key == LogicalKeyboardKey.arrowRight) {
+      _focusNodes[1].requestFocus();
     } else if (key == LogicalKeyboardKey.select ||
         key == LogicalKeyboardKey.enter ||
         key == LogicalKeyboardKey.space) {
-      _playPauseFocusNode.requestFocus();
+      _focusNodes[4].requestFocus();
     }
   }
-  
-  // Сбрасываем визуальный фокус (при клике мыши), но сохраняем _lastFocusedNode
+
   void _clearVisualFocus() {
-    _progressBarFocusNode.unfocus();
-    _qualityFocusNode.unfocus();
-    _audioFocusNode.unfocus();
-    _rewindFocusNode.unfocus();
-    _playPauseFocusNode.unfocus();
-    _forwardFocusNode.unfocus();
-    _fullscreenFocusNode.unfocus();
-    // _lastFocusedNode НЕ сбрасываем - он восстановится при следующем нажатии на пульт
+    for (final n in _focusNodes) {
+      n.unfocus();
+    }
   }
-  
-  // Получаем индекс текущего фокуса (для передачи в fullscreen)
+
   int? _getCurrentFocusIndex() {
-    if (_progressBarFocusNode.hasFocus || _lastFocusedNode == _progressBarFocusNode) return 0;
-    if (_qualityFocusNode.hasFocus || _lastFocusedNode == _qualityFocusNode) return 1;
-    if (_audioFocusNode.hasFocus || _lastFocusedNode == _audioFocusNode) return 2;
-    if (_rewindFocusNode.hasFocus || _lastFocusedNode == _rewindFocusNode) return 3;
-    if (_playPauseFocusNode.hasFocus || _lastFocusedNode == _playPauseFocusNode) return 4;
-    if (_forwardFocusNode.hasFocus || _lastFocusedNode == _forwardFocusNode) return 5;
-    if (_fullscreenFocusNode.hasFocus || _lastFocusedNode == _fullscreenFocusNode) return 6;
-    return null;
+    for (var i = 0; i < _focusNodes.length; i++) {
+      if (_focusNodes[i].hasFocus || _lastFocusedIndex == i) {
+        return i;
+      }
+    }
+    return _lastFocusedIndex;
   }
-  
-  // Устанавливаем фокус по индексу
+
   void _setFocusByIndex(int index) {
-    switch (index) {
-      case 0:
-        _progressBarFocusNode.requestFocus();
-        _lastFocusedNode = _progressBarFocusNode;
-        break;
-      case 1:
-        _qualityFocusNode.requestFocus();
-        _lastFocusedNode = _qualityFocusNode;
-        break;
-      case 2:
-        _audioFocusNode.requestFocus();
-        _lastFocusedNode = _audioFocusNode;
-        break;
-      case 3:
-        _rewindFocusNode.requestFocus();
-        _lastFocusedNode = _rewindFocusNode;
-        break;
-      case 4:
-        _playPauseFocusNode.requestFocus();
-        _lastFocusedNode = _playPauseFocusNode;
-        break;
-      case 5:
-        _forwardFocusNode.requestFocus();
-        _lastFocusedNode = _forwardFocusNode;
-        break;
-      case 6:
-        _fullscreenFocusNode.requestFocus();
-        _lastFocusedNode = _fullscreenFocusNode;
-        break;
+    if (index >= 0 && index < _focusNodes.length) {
+      _focusNodes[index].requestFocus();
+      _lastFocusedIndex = index;
     }
   }
 
@@ -270,74 +185,43 @@ class _PlayerControlsState extends State<PlayerControls> {
     }
   }
   
-  void _seekForward({bool continuous = false}) {
+  /// [direction] 1 — вперёд, -1 — назад.
+  void _seek(int direction, {bool continuous = false}) {
     if (!continuous) {
-      // Обычная перемотка на 10 секунд
-      final newPosition = widget.state.position + const Duration(seconds: 10);
-      final maxPosition = widget.state.duration;
-      widget.controller.seekTo(
-        newPosition > maxPosition ? maxPosition : newPosition,
-      );
+      final delta = Duration(seconds: 10 * direction);
+      final newPosition = widget.state.position + delta;
+      final clamped = newPosition < Duration.zero
+          ? Duration.zero
+          : (newPosition > widget.state.duration
+              ? widget.state.duration
+              : newPosition);
+      widget.controller.seekTo(clamped);
     } else {
-      // Непрерывная перемотка с ускорением
       if (!_isSeeking) {
         _isSeeking = true;
         _seekCount = 0;
       }
-      
       _seekCount++;
-      
-      // Ускорение: начинаем с 1 секунды, затем 2, 3, 5, 10 секунд
-      final seekAmount = _seekCount <= 3 ? 1 : (_seekCount <= 6 ? 2 : (_seekCount <= 10 ? 3 : (_seekCount <= 15 ? 5 : 10)));
-      final newPosition = widget.state.position + Duration(seconds: seekAmount);
-      final maxPosition = widget.state.duration;
-      widget.controller.seekTo(
-        newPosition > maxPosition ? maxPosition : newPosition,
-      );
-      
-      // Интервал между перемотками
+      final amount = _seekCount <= 3
+          ? 1
+          : (_seekCount <= 6 ? 2 : (_seekCount <= 10 ? 3 : (_seekCount <= 15 ? 5 : 10)));
+      final delta = Duration(seconds: amount * direction);
+      final newPosition = widget.state.position + delta;
+      final clamped = newPosition < Duration.zero
+          ? Duration.zero
+          : (newPosition > widget.state.duration
+              ? widget.state.duration
+              : newPosition);
+      widget.controller.seekTo(clamped);
       _seekTimer?.cancel();
       _seekTimer = Timer(const Duration(milliseconds: 200), () {
         if (_isSeeking) {
-          _seekForward(continuous: true);
+          _seek(direction, continuous: true);
         }
       });
     }
   }
 
-  void _seekBackward({bool continuous = false}) {
-    if (!continuous) {
-      // Обычная перемотка на 10 секунд
-      final newPosition = widget.state.position - const Duration(seconds: 10);
-      widget.controller.seekTo(
-        newPosition < Duration.zero ? Duration.zero : newPosition,
-      );
-    } else {
-      // Непрерывная перемотка с ускорением
-      if (!_isSeeking) {
-        _isSeeking = true;
-        _seekCount = 0;
-      }
-      
-      _seekCount++;
-      
-      // Ускорение: начинаем с 1 секунды, затем 2, 3, 5, 10 секунд
-      final seekAmount = _seekCount <= 3 ? 1 : (_seekCount <= 6 ? 2 : (_seekCount <= 10 ? 3 : (_seekCount <= 15 ? 5 : 10)));
-      final newPosition = widget.state.position - Duration(seconds: seekAmount);
-      widget.controller.seekTo(
-        newPosition < Duration.zero ? Duration.zero : newPosition,
-      );
-      
-      // Интервал между перемотками
-      _seekTimer?.cancel();
-      _seekTimer = Timer(const Duration(milliseconds: 200), () {
-        if (_isSeeking) {
-          _seekBackward(continuous: true);
-        }
-      });
-    }
-  }
-  
   void _stopSeeking() {
     _isSeeking = false;
     _seekCount = 0;
@@ -355,23 +239,20 @@ class _PlayerControlsState extends State<PlayerControls> {
 
   void _toggleFullscreen(BuildContext context) {
     if (widget.isFullscreen) {
-      // Выход из fullscreen
       Navigator.of(context).pop(_getCurrentFocusIndex());
     } else {
-      // Вход в fullscreen - передаем текущий индекс фокуса
       final focusIndex = _getCurrentFocusIndex();
       Navigator.of(context).push<int?>(
         MaterialPageRoute(
-          builder: (_) => _FullscreenPlayerPage(
+          builder: (_) => FullscreenPlayerPage(
             controller: widget.controller,
-            formatDuration: widget.formatDuration ?? _defaultFormatDuration,
+            formatDuration: widget.formatDuration ?? defaultFormatDuration,
             controlsHideAfter: widget.controlsHideAfter,
             initialFocusIndex: focusIndex,
           ),
           fullscreenDialog: true,
         ),
       ).then((returnedFocusIndex) {
-        // Восстанавливаем фокус при возврате из fullscreen
         if (returnedFocusIndex != null) {
           Future.microtask(() => _setFocusByIndex(returnedFocusIndex));
         }
@@ -380,147 +261,123 @@ class _PlayerControlsState extends State<PlayerControls> {
   }
   
 
+  KeyEventResult _handleKeyWhenControlsHidden(KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+      _seek(-1);
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+      _seek(1);
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.arrowUp ||
+        event.logicalKey == LogicalKeyboardKey.select ||
+        event.logicalKey == LogicalKeyboardKey.enter) {
+      _showControlsTemporarily(triggeredByKey: event.logicalKey);
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
+  KeyEventResult _handleKeyOnProgressBar(KeyEvent event) {
+    if (event is KeyDownEvent) {
+      if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+        _seek(-1);
+        return KeyEventResult.handled;
+      }
+      if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+        _seek(1);
+        return KeyEventResult.handled;
+      }
+    } else if (event is KeyRepeatEvent) {
+      if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+        _seek(-1, continuous: true);
+        return KeyEventResult.handled;
+      }
+      if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+        _seek(1, continuous: true);
+        return KeyEventResult.handled;
+      }
+    }
+    return KeyEventResult.ignored;
+  }
+
+  KeyEventResult _handleKeyNavigation(KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+      if (_focusNodes[1].hasFocus || _focusNodes[2].hasFocus ||
+          _focusNodes[3].hasFocus || _focusNodes[4].hasFocus ||
+          _focusNodes[5].hasFocus || _focusNodes[6].hasFocus) {
+        _focusNodes[0].requestFocus();
+        return KeyEventResult.handled;
+      }
+    } else if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+      if (_focusNodes[0].hasFocus) {
+        _focusNodes[4].requestFocus();
+        return KeyEventResult.handled;
+      }
+      if (_focusNodes[1].hasFocus || _focusNodes[2].hasFocus ||
+          _focusNodes[3].hasFocus || _focusNodes[4].hasFocus ||
+          _focusNodes[5].hasFocus || _focusNodes[6].hasFocus) {
+        _hideControls();
+        return KeyEventResult.handled;
+      }
+    }
+    return KeyEventResult.ignored;
+  }
+
+  KeyEventResult _handleKeyRowNavigation(KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+      for (var i = 1; i < _focusNodes.length; i++) {
+        if (_focusNodes[i].hasFocus) {
+          _focusNodes[i - 1].requestFocus();
+          return KeyEventResult.handled;
+        }
+      }
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+      for (var i = 0; i < _focusNodes.length - 1; i++) {
+        if (_focusNodes[i].hasFocus) {
+          _focusNodes[i + 1].requestFocus();
+          return KeyEventResult.handled;
+        }
+      }
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Всегда показываем оверлей при ошибке, иначе только если контролы видимы
     final shouldShow = _showControls || widget.state.error != null;
 
     return Focus(
       focusNode: _rootFocusNode,
       autofocus: true,
       onKeyEvent: (node, event) {
-        // Сбрасываем таймер скрытия при любом нажатии клавиши (включая повторы)
         if ((event is KeyDownEvent || event is KeyRepeatEvent) && _showControls) {
           _startHideTimer();
         }
-        
-        // Обработка клавиш когда контролы скрыты
         if (!_showControls && widget.state.error == null) {
-          if (event is KeyDownEvent) {
-            if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
-              _seekBackward();
-              return KeyEventResult.handled;
-            } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
-              _seekForward();
-              return KeyEventResult.handled;
-            } else if (event.logicalKey == LogicalKeyboardKey.arrowUp ||
-                event.logicalKey == LogicalKeyboardKey.select ||
-                event.logicalKey == LogicalKeyboardKey.enter) {
-              // Показываем контролы и передаем информацию о клавише для установки фокуса
-              _showControlsTemporarily(triggeredByKey: event.logicalKey);
-              return KeyEventResult.handled;
-            }
-          }
-          return KeyEventResult.ignored;
+          return _handleKeyWhenControlsHidden(event);
         }
-        
-        // Обработка клавиш когда контролы видны
         if (_showControls) {
-          // Если контролы видны, но фокуса нет - устанавливаем его
           if (event is KeyDownEvent && !_hasAnyFocus()) {
             _setInitialFocus(event.logicalKey);
             return KeyEventResult.handled;
           }
-          
-          // Если фокус на прогресс-баре и нажали влево/вправо - перемотка
-          if (_progressBarFocusNode.hasFocus) {
-            if (event is KeyDownEvent) {
-              // Первое нажатие - обычная перемотка на 10 секунд
-              if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
-                _seekBackward();
-                return KeyEventResult.handled;
-              } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
-                _seekForward();
-                return KeyEventResult.handled;
-              }
-            } else if (event is KeyRepeatEvent) {
-              // Удержание - непрерывная перемотка с ускорением
-              if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
-                _seekBackward(continuous: true);
-                return KeyEventResult.handled;
-              } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
-                _seekForward(continuous: true);
-                return KeyEventResult.handled;
-              }
-            }
+          if (_focusNodes[0].hasFocus) {
+            final r = _handleKeyOnProgressBar(event);
+            if (r == KeyEventResult.handled) return r;
           }
-          
-          // Навигация вверх/вниз между рядами
-          if (event is KeyDownEvent) {
-            if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-              // С нижнего ряда на прогресс-бар
-              if (_qualityFocusNode.hasFocus || _audioFocusNode.hasFocus ||
-                  _rewindFocusNode.hasFocus || _playPauseFocusNode.hasFocus ||
-                  _forwardFocusNode.hasFocus || _fullscreenFocusNode.hasFocus) {
-                _progressBarFocusNode.requestFocus();
-                return KeyEventResult.handled;
-              }
-            } else if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-              // С прогресс-бара на нижний ряд (центральная кнопка)
-              if (_progressBarFocusNode.hasFocus) {
-                _playPauseFocusNode.requestFocus();
-                return KeyEventResult.handled;
-              }
-              // С нижнего ряда вниз - скрыть контролы
-              if (_qualityFocusNode.hasFocus || _audioFocusNode.hasFocus ||
-                  _rewindFocusNode.hasFocus || _playPauseFocusNode.hasFocus ||
-                  _forwardFocusNode.hasFocus || _fullscreenFocusNode.hasFocus) {
-                _hideControls();
-                return KeyEventResult.handled;
-              }
-            }
-          }
-          
-          // Навигация по нижнему ряду (ручное управление)
-          if (event is KeyDownEvent) {
-            // Порядок кнопок: Quality -> Audio -> Rewind -> PlayPause -> Forward -> Fullscreen
-            if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
-              if (_audioFocusNode.hasFocus) {
-                _qualityFocusNode.requestFocus();
-                return KeyEventResult.handled;
-              } else if (_rewindFocusNode.hasFocus) {
-                _audioFocusNode.requestFocus();
-                return KeyEventResult.handled;
-              } else if (_playPauseFocusNode.hasFocus) {
-                _rewindFocusNode.requestFocus();
-                return KeyEventResult.handled;
-              } else if (_forwardFocusNode.hasFocus) {
-                _playPauseFocusNode.requestFocus();
-                return KeyEventResult.handled;
-              } else if (_fullscreenFocusNode.hasFocus) {
-                _forwardFocusNode.requestFocus();
-                return KeyEventResult.handled;
-              }
-              // Если на Quality (крайняя левая) - ничего не делаем
-              if (_qualityFocusNode.hasFocus) {
-                return KeyEventResult.handled;
-              }
-            } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
-              if (_qualityFocusNode.hasFocus) {
-                _audioFocusNode.requestFocus();
-                return KeyEventResult.handled;
-              } else if (_audioFocusNode.hasFocus) {
-                _rewindFocusNode.requestFocus();
-                return KeyEventResult.handled;
-              } else if (_rewindFocusNode.hasFocus) {
-                _playPauseFocusNode.requestFocus();
-                return KeyEventResult.handled;
-              } else if (_playPauseFocusNode.hasFocus) {
-                _forwardFocusNode.requestFocus();
-                return KeyEventResult.handled;
-              } else if (_forwardFocusNode.hasFocus) {
-                _fullscreenFocusNode.requestFocus();
-                return KeyEventResult.handled;
-              }
-              // Если на Fullscreen (крайняя правая) - ничего не делаем
-              if (_fullscreenFocusNode.hasFocus) {
-                return KeyEventResult.handled;
-              }
-            }
-          }
+          final nav = _handleKeyNavigation(event);
+          if (nav == KeyEventResult.handled) return nav;
+          final row = _handleKeyRowNavigation(event);
+          if (row == KeyEventResult.handled) return row;
         }
-        
-        // Прекращаем перемотку при отпускании клавиши
         if (event is KeyUpEvent) {
           if (event.logicalKey == LogicalKeyboardKey.arrowLeft ||
               event.logicalKey == LogicalKeyboardKey.arrowRight) {
@@ -528,7 +385,6 @@ class _PlayerControlsState extends State<PlayerControls> {
             return KeyEventResult.handled;
           }
         }
-        
         return KeyEventResult.ignored;
       },
       child: Stack(
@@ -573,7 +429,7 @@ class _PlayerControlsState extends State<PlayerControls> {
                               children: [
                                 // Прогресс-бар с фокусом
                                 FocusableControlButton(
-                                  focusNode: _progressBarFocusNode,
+                                  focusNode: _focusNodes[0],
                                   autofocus: false,
                                   onPressed: () {},
                                   onLongPressStart: () {
@@ -582,7 +438,7 @@ class _PlayerControlsState extends State<PlayerControls> {
                                   child: ProgressBar(
                                     state: widget.state,
                                     controller: widget.controller,
-                                    formatDuration: widget.formatDuration ?? _defaultFormatDuration,
+                                    formatDuration: widget.formatDuration ?? defaultFormatDuration,
                                     onInteraction: _startHideTimer,
                                   ),
                                 ),
@@ -595,17 +451,15 @@ class _PlayerControlsState extends State<PlayerControls> {
                                           mainAxisAlignment: MainAxisAlignment.start,
                                           children: [
                                             QualityButton(
-                                              key: _qualityButtonKey,
                                               controller: widget.controller,
                                               onInteraction: _startHideTimer,
-                                              focusNode: _qualityFocusNode,
+                                              focusNode: _focusNodes[1],
                                             ),
                                             const SizedBox(width: 8),
                                             AudioTrackButton(
-                                              key: _audioButtonKey,
                                               controller: widget.controller,
                                               onInteraction: _startHideTimer,
-                                              focusNode: _audioFocusNode,
+                                              focusNode: _focusNodes[2],
                                             ),
                                           ],
                                         ),
@@ -614,9 +468,9 @@ class _PlayerControlsState extends State<PlayerControls> {
                                         mainAxisAlignment: MainAxisAlignment.center,
                                         children: [
                                           FocusableControlButton(
-                                            focusNode: _rewindFocusNode,
+                                            focusNode: _focusNodes[3],
                                             onPressed: () {
-                                              _seekBackward();
+                                              _seek(-1);
                                               _startHideTimer();
                                             },
                                             child: RewindButton(
@@ -627,7 +481,7 @@ class _PlayerControlsState extends State<PlayerControls> {
                                           ),
                                           const SizedBox(width: 24),
                                           FocusableControlButton(
-                                            focusNode: _playPauseFocusNode,
+                                            focusNode: _focusNodes[4],
                                             onPressed: _togglePlayPause,
                                             child: PlayPauseButton(
                                               controller: widget.controller,
@@ -637,9 +491,9 @@ class _PlayerControlsState extends State<PlayerControls> {
                                           ),
                                           const SizedBox(width: 24),
                                           FocusableControlButton(
-                                            focusNode: _forwardFocusNode,
+                                            focusNode: _focusNodes[5],
                                             onPressed: () {
-                                              _seekForward();
+                                              _seek(1);
                                               _startHideTimer();
                                             },
                                             child: ForwardButton(
@@ -655,17 +509,14 @@ class _PlayerControlsState extends State<PlayerControls> {
                                           mainAxisAlignment: MainAxisAlignment.end,
                                           children: [
                                             FocusableControlButton(
-                                              focusNode: _fullscreenFocusNode,
+                                              focusNode: _focusNodes[6],
                                               onPressed: () {
                                                 _startHideTimer();
                                                 _toggleFullscreen(context);
                                               },
                                               child: FullscreenButton(
                                                 isFullscreen: widget.isFullscreen,
-                                                onPressed: () {
-                                                  _startHideTimer();
-                                                  _toggleFullscreen(context);
-                                                },
+                                                onPressed: null,
                                               ),
                                             ),
                                           ],
@@ -699,81 +550,6 @@ class _PlayerControlsState extends State<PlayerControls> {
               ),
             ),
         ],
-      ),
-    );
-  }
-}
-
-/// Полноэкранная страница воспроизведения
-class _FullscreenPlayerPage extends StatefulWidget {
-  final RhsPlayerController controller;
-  final String Function(Duration) formatDuration;
-  final Duration? controlsHideAfter;
-  final int? initialFocusIndex;
-
-  const _FullscreenPlayerPage({
-    required this.controller,
-    required this.formatDuration,
-    required this.controlsHideAfter,
-    this.initialFocusIndex,
-  });
-
-  @override
-  State<_FullscreenPlayerPage> createState() => _FullscreenPlayerPageState();
-}
-
-class _FullscreenPlayerPageState extends State<_FullscreenPlayerPage> {
-  @override
-  void initState() {
-    super.initState();
-    SystemChrome.setPreferredOrientations([DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]);
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-  }
-
-  @override
-  void dispose() {
-    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp, DeviceOrientation.portraitDown]);
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: SafeArea(
-        top: false,
-        bottom: false,
-        left: false,
-        right: false,
-        child: Stack(
-          children: [
-            RhsPlayerView(controller: widget.controller, boxFit: BoxFit.contain),
-            StreamBuilder<RhsNativeEvents?>(
-              stream: widget.controller.eventsStream,
-              builder: (context, eventsSnapshot) {
-                if (!eventsSnapshot.hasData || eventsSnapshot.data == null) {
-                  return const SizedBox.shrink();
-                }
-
-                final events = eventsSnapshot.data!;
-                return StreamBuilder<RhsPlaybackState>(
-                  stream: widget.controller.playbackStateStream,
-                  builder: (context, stateSnapshot) {
-                    return PlayerControls(
-                      controller: widget.controller,
-                      state: stateSnapshot.data ?? events.state.value,
-                      formatDuration: widget.formatDuration,
-                      controlsHideAfter: widget.controlsHideAfter,
-                      isFullscreen: true,
-                      initialFocusIndex: widget.initialFocusIndex,
-                    );
-                  },
-                );
-              },
-            ),
-          ],
-        ),
       ),
     );
   }

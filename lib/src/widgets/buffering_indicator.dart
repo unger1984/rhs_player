@@ -5,9 +5,12 @@ class BufferingIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.all(16.0),
-      child: CircularProgressIndicator(color: Colors.white),
+    return Semantics(
+      label: 'Buffering',
+      child: const Padding(
+        padding: EdgeInsets.all(16.0),
+        child: CircularProgressIndicator(color: Colors.white),
+      ),
     );
   }
 }

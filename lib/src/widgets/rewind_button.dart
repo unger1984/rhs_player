@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:rhs_player/rhs_player.dart';
 
+import 'seek_button.dart';
+
+/// Кнопка перемотки на 10 секунд назад.
 class RewindButton extends StatelessWidget {
   final RhsPlaybackState state;
   final RhsPlayerController controller;
@@ -15,13 +18,11 @@ class RewindButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return IconButton(
-      icon: const Icon(Icons.replay_10, color: Colors.white, size: 32),
-      onPressed: () {
-        onInteraction?.call();
-        final newPosition = state.position - const Duration(seconds: 10);
-        controller.seekTo(newPosition < Duration.zero ? Duration.zero : newPosition);
-      },
+    return SeekButton(
+      seconds: -10,
+      state: state,
+      controller: controller,
+      onInteraction: onInteraction,
     );
   }
 }

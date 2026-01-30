@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:rhs_player/rhs_player.dart';
 import 'quality_button.dart';
+import 'audio_track_button.dart';
 import 'rewind_button.dart';
 import 'play_pause_button.dart';
 import 'forward_button.dart';
@@ -118,6 +119,11 @@ class _PlayerControlsOverlayState extends State<PlayerControlsOverlay> {
                             child: Row(
                               children: [
                                 QualityButton(controller: widget.controller, onControlsShow: _showControlsTemporarily),
+                                const SizedBox(width: 8),
+                                AudioTrackButton(
+                                  controller: widget.controller,
+                                  onControlsShow: _showControlsTemporarily,
+                                ),
                                 const Spacer(),
                                 RewindButton(
                                   state: widget.state,

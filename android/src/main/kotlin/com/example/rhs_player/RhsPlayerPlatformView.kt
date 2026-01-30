@@ -888,16 +888,6 @@ private fun SharedPlayerEntry.ensureInitialized(
       }
     }
 
-    val isLive = entry["isLive"] as? Boolean ?: false
-    if (isLive) {
-      val live = MediaItem.LiveConfiguration.Builder()
-        .setTargetOffsetMs(3000)
-        .setMinPlaybackSpeed(0.97f)
-        .setMaxPlaybackSpeed(1.03f)
-        .build()
-      builder.setLiveConfiguration(live)
-    }
-
     val mediaItem = builder.build()
     val okClient = RhsPlayerHttpClientProvider.obtainClient()
     val httpFactory: DataSource.Factory = OkHttpDataSource.Factory(okClient)

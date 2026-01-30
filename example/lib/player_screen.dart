@@ -2,18 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:rhs_player/rhs_player.dart';
 
 class PlayerScreen extends StatelessWidget {
-  final bool isLive;
-  const PlayerScreen({super.key, this.isLive = false});
+  const PlayerScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return _PlayerScreenContent(isLive: isLive);
+    return const _PlayerScreenContent();
   }
 }
 
 class _PlayerScreenContent extends StatefulWidget {
-  final bool isLive;
-  const _PlayerScreenContent({required this.isLive});
+  const _PlayerScreenContent();
 
   @override
   State<_PlayerScreenContent> createState() => _PlayerScreenContentState();
@@ -31,7 +29,6 @@ class _PlayerScreenContentState extends State<_PlayerScreenContent> {
     controller = RhsPlayerController.single(
       RhsMediaSource(
         "https://user67561.nowcdn.co/done/widevine_playready/06bff34bc0fed90c578b72d72905680ae9b29e29/index.mpd",
-        isLive: widget.isLive,
         drm: const RhsDrmConfig(type: RhsDrmType.widevine, licenseUrl: 'https://drm93075.nowdrm.co/widevine'),
       ),
       autoPlay: true,
@@ -65,38 +62,35 @@ class _PlayerScreenContentState extends State<_PlayerScreenContent> {
               overlay: StreamBuilder<RhsNativeEvents?>(
                 stream: controller.eventsStream,
                 builder: (context, eventsSnapshot) {
-                  // Показываем индикатор загрузки, если события еще не инициализированы
                   if (!eventsSnapshot.hasData || eventsSnapshot.data == null) {
-                    return Container(
-                      color: Colors.black,
-                      child: const Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            CircularProgressIndicator(color: Colors.white),
-                            SizedBox(height: 16),
-                            Text('Initializing player...', style: TextStyle(color: Colors.white)),
-                          ],
-                        ),
-                      ),
+                    return const Center(
+                      child: CircularProgressIndicator(color: Colors.white),
                     );
                   }
 
-                  final events = eventsSnapshot.data!;
-                  // Используем StreamBuilder для состояния воспроизведения и ошибок
                   return StreamBuilder<RhsPlaybackState>(
                     stream: controller.playbackStateStream,
+                    initialData: controller.currentPlaybackState,
                     builder: (context, stateSnapshot) {
-                      return StreamBuilder<String?>(
-                        stream: controller.errorStream,
-                        builder: (context, errorSnapshot) {
-                          return PlayerControls(
-                            controller: controller,
-                            state: stateSnapshot.data ?? events.state.value,
-                            error: errorSnapshot.data ?? events.error.value,
-                            formatDuration: _formatDuration,
-                          );
-                        },
+                      final state = stateSnapshot.data!;
+                      // Пока медиа не загружено (duration == 0), показываем загрузку
+                      if (state.duration == Duration.zero && state.error == null) {
+                        return Container(
+                          color: Colors.black,
+                          child: const Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                CircularProgressIndicator(color: Colors.white),
+                              ],
+                            ),
+                          ),
+                        );
+                      }
+                      return PlayerControls(
+                        controller: controller,
+                        state: state,
+                        formatDuration: _formatDuration,
                       );
                     },
                   );

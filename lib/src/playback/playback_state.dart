@@ -1,19 +1,25 @@
-/// Снимок текущей позиции воспроизведения, сообщаемой нативным слоем.
+/// Снимок состояния воспроизведения: позиция, буфер, воспроизведение или ошибка.
+///
+/// В один момент времени либо воспроизведение (position, isPlaying, …), либо ошибка
+/// ([error] != null). Одновременно playing и error быть не может.
 class RhsPlaybackState {
   /// Текущая позиция воспроизведения
   final Duration position;
-  
+
   /// Общая продолжительность медиа
   final Duration duration;
-  
+
   /// Позиция до которой загружены данные (буфер)
   final Duration bufferedPosition;
-  
+
   /// Флаг воспроизведения
   final bool isPlaying;
-  
+
   /// Флаг буферизации
   final bool isBuffering;
+
+  /// Сообщение об ошибке; при не null воспроизведение в состоянии ошибки
+  final String? error;
 
   const RhsPlaybackState({
     required this.position,
@@ -21,5 +27,6 @@ class RhsPlaybackState {
     required this.bufferedPosition,
     required this.isPlaying,
     required this.isBuffering,
+    this.error,
   });
 }

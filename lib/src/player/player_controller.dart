@@ -52,15 +52,11 @@ class RhsPlayerController {
   /// Флаг состояния воспроизведения перед паузой
   bool _wasPlaying = false;
 
-  /// Подписка на события состояния
+  /// Подписка на события состояния (включая ошибку)
   StreamSubscription<RhsPlaybackState>? _stateSubscription;
 
-  /// Подписка на события ошибок
-  StreamSubscription<String?>? _errorSubscription;
-
-  /// Контроллеры потоков для ValueNotifier
+  /// Контроллер потока для ValueNotifier состояния
   StreamController<RhsPlaybackState>? _stateController;
-  StreamController<String?>? _errorController;
 
   /// Флаг режима экономии трафика
   bool _dataSaver = false;
@@ -71,7 +67,7 @@ class RhsPlayerController {
   /// Stream состояния буферизации
   final BehaviorSubject<bool> _bufferingSubject = BehaviorSubject<bool>.seeded(false);
 
-  /// Stream состояния воспроизведения
+  /// Stream состояния воспроизведения (включая ошибку; playing и error взаимоисключают друг друга)
   final BehaviorSubject<RhsPlaybackState> _playbackStateSubject = BehaviorSubject<RhsPlaybackState>.seeded(
     const RhsPlaybackState(
       position: Duration.zero,
@@ -79,14 +75,12 @@ class RhsPlayerController {
       bufferedPosition: Duration.zero,
       isPlaying: false,
       isBuffering: false,
+      error: null,
     ),
   );
 
   /// Stream изменений дорожек
   final PublishSubject<void> _tracksSubject = PublishSubject<void>();
-
-  /// Stream ошибок
-  final BehaviorSubject<String?> _errorSubject = BehaviorSubject<String?>.seeded(null);
 
   /// Stream событий (для обратной совместимости)
   final BehaviorSubject<RhsNativeEvents?> _eventsSubject = BehaviorSubject<RhsNativeEvents?>.seeded(null);
@@ -122,7 +116,7 @@ class RhsPlayerController {
     'playbackOptions': playbackOptions.toMap(),
     'controllerId': _controllerId,
     'playlist': playlist
-        .map((s) => {'url': s.url, 'headers': s.headers ?? {}, 'isLive': s.isLive, 'drm': _drmToMap(s.drm)})
+        .map((s) => {'url': s.url, 'headers': s.headers ?? {}, 'drm': _drmToMap(s.drm)})
         .toList(),
   };
 
@@ -132,9 +126,7 @@ class RhsPlayerController {
     // Перепривязывает события; освобождает предыдущие для избежания утечек
     if (_events != null) {
       _stateSubscription?.cancel();
-      _errorSubscription?.cancel();
       _stateController?.close();
-      _errorController?.close();
       _events!.dispose();
     }
     if (_tracks != null) {
@@ -151,18 +143,13 @@ class RhsPlayerController {
     tracks.start();
     _tracks = tracks;
 
-    // Подписываемся на изменения состояния
+    // Подписываемся на изменения состояния (включая ошибку)
     _stateSubscription = _listenToStateNotifier(ev.state).listen((state) {
       _resumePositionMs = state.position.inMilliseconds;
       _wasPlaying = state.isPlaying;
       _progressSubject.add(state.position);
       _bufferingSubject.add(state.isBuffering);
       _playbackStateSubject.add(state);
-    });
-
-    // Подписываемся на ошибки
-    _errorSubscription = _listenToErrorNotifier(ev.error).listen((error) {
-      _errorSubject.add(error);
     });
   }
 
@@ -174,16 +161,6 @@ class RhsPlayerController {
     notifier.addListener(listener);
     _stateController!.onCancel = () => notifier.removeListener(listener);
     return _stateController!.stream;
-  }
-
-  /// Преобразует ValueNotifier в Stream для ошибок
-  Stream<String?> _listenToErrorNotifier(ValueNotifier<String?> notifier) {
-    _errorController?.close();
-    _errorController = StreamController<String?>.broadcast();
-    void listener() => _errorController!.add(notifier.value);
-    notifier.addListener(listener);
-    _errorController!.onCancel = () => notifier.removeListener(listener);
-    return _errorController!.stream;
   }
 
   /// Преобразует конфигурацию DRM в карту для передачи в нативный код
@@ -314,15 +291,12 @@ class RhsPlayerController {
   Future<void> dispose() async {
     await _invoke('dispose');
     _stateSubscription?.cancel();
-    _errorSubscription?.cancel();
     _stateController?.close();
-    _errorController?.close();
     _events?.dispose();
     await _progressSubject.close();
     await _bufferingSubject.close();
     await _playbackStateSubject.close();
     await _tracksSubject.close();
-    await _errorSubject.close();
     await _eventsSubject.close();
     _tracks?.dispose();
   }
@@ -342,14 +316,11 @@ class RhsPlayerController {
   /// Stream состояния буферизации
   Stream<bool> get bufferingStream => _bufferingSubject.stream;
 
-  /// Stream состояния воспроизведения
+  /// Stream состояния воспроизведения (включая ошибку в [RhsPlaybackState.error])
   Stream<RhsPlaybackState> get playbackStateStream => _playbackStateSubject.stream;
 
   /// Stream изменений дорожек
   Stream<void> get tracksStream => _tracksSubject.stream;
-
-  /// Stream ошибок воспроизведения
-  Stream<String?> get errorStream => _errorSubject.stream;
 
   /// Stream событий (для обратной совместимости)
   Stream<RhsNativeEvents?> get eventsStream => _eventsSubject.stream;
@@ -363,8 +334,8 @@ class RhsPlayerController {
   /// Текущее состояние буферизации
   bool get isBuffering => _bufferingSubject.value;
 
-  /// Текущая ошибка воспроизведения
-  String? get currentError => _errorSubject.value;
+  /// Текущая ошибка воспроизведения (из единого состояния)
+  String? get currentError => _playbackStateSubject.value.error;
 
   /// Добавляет слушатель прогресса воспроизведения.
   /// Возвращает функцию для удаления слушателя.
@@ -400,9 +371,9 @@ class RhsPlayerController {
 
   /// Добавляет слушатель ошибок воспроизведения.
   /// Возвращает функцию для удаления слушателя.
-  /// @deprecated Используйте [errorStream] вместо этого
+  /// @deprecated Используйте [playbackStateStream] и [RhsPlaybackState.error] вместо этого
   VoidCallback addErrorListener(ValueChanged<String?> listener) {
-    final subscription = errorStream.listen(listener);
+    final subscription = playbackStateStream.listen((s) => listener(s.error));
     return () => subscription.cancel();
   }
 

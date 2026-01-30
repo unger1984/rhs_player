@@ -14,7 +14,7 @@ class RhsNativeEvents {
   /// Подписка на события
   StreamSubscription? _sub;
 
-  /// Уведомитель состояния воспроизведения
+  /// Уведомитель состояния воспроизведения (включая ошибку; playing и error взаимоисключают друг друга)
   final ValueNotifier<RhsPlaybackState> state = ValueNotifier(
     const RhsPlaybackState(
       position: Duration.zero,
@@ -22,13 +22,9 @@ class RhsNativeEvents {
       bufferedPosition: Duration.zero,
       isPlaying: false,
       isBuffering: true,
+      error: null,
     ),
   );
-
-  /// Уведомитель ошибок воспроизведения
-  /// Выдает ненулевое значение, когда нативная сторона сообщает об ошибке; 
-  /// очищается при возобновлении воспроизведения.
-  final ValueNotifier<String?> error = ValueNotifier(null);
 
   RhsNativeEvents(this.viewId) {
     _eventChannel = EventChannel('rhsplayer/events_$viewId');
@@ -49,18 +45,14 @@ class RhsNativeEvents {
       final playing = evt['isPlaying'] == true;
       final buffering = evt['isBuffering'] == true;
       final errMsg = evt['error'] as String?;
-      if (errMsg != null && errMsg.isNotEmpty) {
-        error.value = errMsg;
-      } else if (playing) {
-        // Очищает ошибку после возобновления воспроизведения
-        error.value = null;
-      }
+      final error = (errMsg != null && errMsg.isNotEmpty) ? errMsg : null;
       state.value = RhsPlaybackState(
         position: Duration(milliseconds: posMs),
         duration: Duration(milliseconds: durMs),
         bufferedPosition: Duration(milliseconds: bufferedMs),
         isPlaying: playing,
         isBuffering: buffering,
+        error: playing ? null : error,
       );
     }
   }
@@ -69,6 +61,5 @@ class RhsNativeEvents {
   void dispose() {
     _sub?.cancel();
     state.dispose();
-    error.dispose();
   }
 }

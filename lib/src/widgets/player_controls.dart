@@ -6,7 +6,6 @@ import 'package:rhs_player/rhs_player.dart';
 class PlayerControls extends StatefulWidget {
   final RhsPlayerController controller;
   final RhsPlaybackState state;
-  final String? error;
   final String Function(Duration) formatDuration;
   final bool isFullscreen;
 
@@ -14,7 +13,6 @@ class PlayerControls extends StatefulWidget {
     super.key,
     required this.controller,
     required this.state,
-    this.error,
     required this.formatDuration,
     this.isFullscreen = false,
   });
@@ -43,7 +41,7 @@ class _PlayerControlsState extends State<PlayerControls> {
   void _startHideTimer() {
     _hideControlsTimer?.cancel();
     _hideControlsTimer = Timer(const Duration(seconds: 3), () {
-      if (mounted && widget.error == null) {
+      if (mounted && widget.state.error == null) {
         setState(() => _showControls = false);
       }
     });
@@ -57,7 +55,7 @@ class _PlayerControlsState extends State<PlayerControls> {
   }
 
   void _hideControls() {
-    if (_showControls && widget.error == null) {
+    if (_showControls && widget.state.error == null) {
       setState(() => _showControls = false);
     }
   }
@@ -80,7 +78,7 @@ class _PlayerControlsState extends State<PlayerControls> {
   @override
   Widget build(BuildContext context) {
     // Всегда показываем оверлей при ошибке, иначе только если контролы видимы
-    final shouldShow = _showControls || widget.error != null;
+    final shouldShow = _showControls || widget.state.error != null;
 
     return Stack(
       children: [
@@ -113,10 +111,11 @@ class _PlayerControlsState extends State<PlayerControls> {
                     ),
 
                   // Сообщение об ошибке
-                  if (widget.error != null) ErrorDisplay(error: widget.error!, controller: widget.controller),
+                  if (widget.state.error != null)
+                    ErrorDisplay(error: widget.state.error!, controller: widget.controller),
 
                   // Контролы воспроизведения
-                  if (_showControls && widget.error == null && !widget.state.isBuffering)
+                  if (_showControls && widget.state.error == null && !widget.state.isBuffering)
                     Expanded(
                       child: Listener(
                         behavior: HitTestBehavior.translucent,
@@ -227,17 +226,11 @@ class _FullscreenPlayerPageState extends State<_FullscreenPlayerPage> {
                 return StreamBuilder<RhsPlaybackState>(
                   stream: widget.controller.playbackStateStream,
                   builder: (context, stateSnapshot) {
-                    return StreamBuilder<String?>(
-                      stream: widget.controller.errorStream,
-                      builder: (context, errorSnapshot) {
-                        return PlayerControls(
-                          controller: widget.controller,
-                          state: stateSnapshot.data ?? events.state.value,
-                          error: errorSnapshot.data ?? events.error.value,
-                          formatDuration: widget.formatDuration,
-                          isFullscreen: true,
-                        );
-                      },
+                    return PlayerControls(
+                      controller: widget.controller,
+                      state: stateSnapshot.data ?? events.state.value,
+                      formatDuration: widget.formatDuration,
+                      isFullscreen: true,
                     );
                   },
                 );

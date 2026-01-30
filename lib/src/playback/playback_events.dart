@@ -16,7 +16,13 @@ class RhsNativeEvents {
 
   /// Уведомитель состояния воспроизведения
   final ValueNotifier<RhsPlaybackState> state = ValueNotifier(
-    const RhsPlaybackState(position: Duration.zero, duration: Duration.zero, isPlaying: false, isBuffering: true),
+    const RhsPlaybackState(
+      position: Duration.zero,
+      duration: Duration.zero,
+      bufferedPosition: Duration.zero,
+      isPlaying: false,
+      isBuffering: true,
+    ),
   );
 
   /// Уведомитель ошибок воспроизведения
@@ -39,6 +45,7 @@ class RhsNativeEvents {
     if (evt is Map) {
       final posMs = (evt['positionMs'] as num?)?.toInt() ?? 0;
       final durMs = (evt['durationMs'] as num?)?.toInt() ?? 0;
+      final bufferedMs = (evt['bufferedPositionMs'] as num?)?.toInt() ?? 0;
       final playing = evt['isPlaying'] == true;
       final buffering = evt['isBuffering'] == true;
       final errMsg = evt['error'] as String?;
@@ -51,6 +58,7 @@ class RhsNativeEvents {
       state.value = RhsPlaybackState(
         position: Duration(milliseconds: posMs),
         duration: Duration(milliseconds: durMs),
+        bufferedPosition: Duration(milliseconds: bufferedMs),
         isPlaying: playing,
         isBuffering: buffering,
       );

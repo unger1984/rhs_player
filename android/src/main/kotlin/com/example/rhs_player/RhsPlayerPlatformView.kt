@@ -310,11 +310,13 @@ class RhsPlayerPlatformView(
     val sink = eventsSink ?: return
     val pos = player.currentPosition.coerceAtLeast(0L)
     val dur = if (player.duration > 0) player.duration else 0L
+    val bufferedPos = player.bufferedPosition.coerceAtLeast(0L)
     val buffering = player.playbackState == Player.STATE_BUFFERING
     val playing = player.isPlaying
     sink.success(mapOf(
       "positionMs" to pos,
       "durationMs" to dur,
+      "bufferedPositionMs" to bufferedPos,
       "isBuffering" to buffering,
       "isPlaying" to playing,
     ))

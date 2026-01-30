@@ -105,13 +105,18 @@ class _PlayerControlsState extends State<PlayerControls> {
               child: Column(
                 children: [
                   // Индикатор буферизации
-                  if (widget.state.isBuffering) const BufferingIndicator(),
+                  if (widget.state.isBuffering)
+                    const Expanded(
+                      child: Center(
+                        child: BufferingIndicator(),
+                      ),
+                    ),
 
                   // Сообщение об ошибке
                   if (widget.error != null) ErrorDisplay(error: widget.error!, controller: widget.controller),
 
                   // Контролы воспроизведения
-                  if (_showControls && widget.error == null)
+                  if (_showControls && widget.error == null && !widget.state.isBuffering)
                     Expanded(
                       child: Listener(
                         behavior: HitTestBehavior.translucent,

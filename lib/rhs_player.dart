@@ -25,6 +25,7 @@ export 'src/widgets/error_display.dart';
 export 'src/widgets/forward_button.dart';
 export 'src/widgets/fullscreen_button.dart';
 export 'src/widgets/play_pause_button.dart';
+export 'src/widgets/player_controls.dart';
 export 'src/widgets/progress_bar.dart';
 export 'src/widgets/quality_button.dart';
 export 'src/widgets/rewind_button.dart';

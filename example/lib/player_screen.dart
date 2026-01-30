@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:rhs_player/rhs_player.dart';
-import 'widgets/player_controls.dart';
 
 class PlayerScreen extends StatelessWidget {
   final bool isLive;
@@ -60,51 +59,49 @@ class _PlayerScreenContentState extends State<_PlayerScreenContent> {
         child: Center(
           child: AspectRatio(
             aspectRatio: 16 / 9,
-            child: Stack(
-              children: [
-                RhsPlayerView(controller: controller, boxFit: BoxFit.contain),
-                // Используем StreamBuilder для отслеживания событий
-                StreamBuilder<RhsNativeEvents?>(
-                  stream: controller.eventsStream,
-                  builder: (context, eventsSnapshot) {
-                    // Показываем индикатор загрузки, если события еще не инициализированы
-                    if (!eventsSnapshot.hasData || eventsSnapshot.data == null) {
-                      return Container(
-                        color: Colors.black,
-                        child: const Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              CircularProgressIndicator(color: Colors.white),
-                              SizedBox(height: 16),
-                              Text('Initializing player...', style: TextStyle(color: Colors.white)),
-                            ],
-                          ),
+            child: RhsPlayerView(
+              controller: controller,
+              boxFit: BoxFit.contain,
+              overlay: StreamBuilder<RhsNativeEvents?>(
+                stream: controller.eventsStream,
+                builder: (context, eventsSnapshot) {
+                  // Показываем индикатор загрузки, если события еще не инициализированы
+                  if (!eventsSnapshot.hasData || eventsSnapshot.data == null) {
+                    return Container(
+                      color: Colors.black,
+                      child: const Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            CircularProgressIndicator(color: Colors.white),
+                            SizedBox(height: 16),
+                            Text('Initializing player...', style: TextStyle(color: Colors.white)),
+                          ],
                         ),
-                      );
-                    }
-
-                    final events = eventsSnapshot.data!;
-                    // Используем StreamBuilder для состояния воспроизведения и ошибок
-                    return StreamBuilder<RhsPlaybackState>(
-                      stream: controller.playbackStateStream,
-                      builder: (context, stateSnapshot) {
-                        return StreamBuilder<String?>(
-                          stream: controller.errorStream,
-                          builder: (context, errorSnapshot) {
-                            return PlayerControls(
-                              controller: controller,
-                              state: stateSnapshot.data ?? events.state.value,
-                              error: errorSnapshot.data ?? events.error.value,
-                              formatDuration: _formatDuration,
-                            );
-                          },
-                        );
-                      },
+                      ),
                     );
-                  },
-                ),
-              ],
+                  }
+
+                  final events = eventsSnapshot.data!;
+                  // Используем StreamBuilder для состояния воспроизведения и ошибок
+                  return StreamBuilder<RhsPlaybackState>(
+                    stream: controller.playbackStateStream,
+                    builder: (context, stateSnapshot) {
+                      return StreamBuilder<String?>(
+                        stream: controller.errorStream,
+                        builder: (context, errorSnapshot) {
+                          return PlayerControls(
+                            controller: controller,
+                            state: stateSnapshot.data ?? events.state.value,
+                            error: errorSnapshot.data ?? events.error.value,
+                            formatDuration: _formatDuration,
+                          );
+                        },
+                      );
+                    },
+                  );
+                },
+              ),
             ),
           ),
         ),

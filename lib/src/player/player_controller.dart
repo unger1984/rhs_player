@@ -73,7 +73,13 @@ class RhsPlayerController {
 
   /// Stream состояния воспроизведения
   final BehaviorSubject<RhsPlaybackState> _playbackStateSubject = BehaviorSubject<RhsPlaybackState>.seeded(
-    const RhsPlaybackState(position: Duration.zero, duration: Duration.zero, isPlaying: false, isBuffering: false),
+    const RhsPlaybackState(
+      position: Duration.zero,
+      duration: Duration.zero,
+      bufferedPosition: Duration.zero,
+      isPlaying: false,
+      isBuffering: false,
+    ),
   );
 
   /// Stream изменений дорожек

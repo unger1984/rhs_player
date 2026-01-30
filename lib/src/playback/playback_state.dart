@@ -6,6 +6,9 @@ class RhsPlaybackState {
   /// Общая продолжительность медиа
   final Duration duration;
   
+  /// Позиция до которой загружены данные (буфер)
+  final Duration bufferedPosition;
+  
   /// Флаг воспроизведения
   final bool isPlaying;
   
@@ -15,6 +18,7 @@ class RhsPlaybackState {
   const RhsPlaybackState({
     required this.position,
     required this.duration,
+    required this.bufferedPosition,
     required this.isPlaying,
     required this.isBuffering,
   });

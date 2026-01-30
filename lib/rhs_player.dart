@@ -22,6 +22,7 @@ export 'src/player/player_view.dart';
 export 'src/widgets/audio_track_button.dart';
 export 'src/widgets/buffering_indicator.dart';
 export 'src/widgets/error_display.dart';
+export 'src/widgets/focusable_control_button.dart';
 export 'src/widgets/forward_button.dart';
 export 'src/widgets/fullscreen_button.dart';
 export 'src/widgets/play_pause_button.dart';

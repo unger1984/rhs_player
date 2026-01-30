@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:rhs_player/rhs_player.dart';
 
 /// Кнопка выбора аудиодорожки
@@ -7,8 +8,14 @@ import 'package:rhs_player/rhs_player.dart';
 class AudioTrackButton extends StatefulWidget {
   final RhsPlayerController controller;
   final VoidCallback? onInteraction;
+  final FocusNode? focusNode;
 
-  const AudioTrackButton({super.key, required this.controller, this.onInteraction});
+  const AudioTrackButton({
+    super.key, 
+    required this.controller, 
+    this.onInteraction,
+    this.focusNode,
+  });
 
   @override
   State<AudioTrackButton> createState() => _AudioTrackButtonState();
@@ -18,6 +25,8 @@ class _AudioTrackButtonState extends State<AudioTrackButton> {
   List<RhsAudioTrack> _tracks = [];
   String? _selectedTrackId;
   StreamSubscription? _tracksSubscription;
+  final GlobalKey<PopupMenuButtonState<String>> _popupMenuKey = GlobalKey<PopupMenuButtonState<String>>();
+  bool _isFocused = false;
 
   @override
   void initState() {
@@ -150,6 +159,11 @@ class _AudioTrackButtonState extends State<AudioTrackButton> {
     );
   }
 
+  /// Программно открывает меню (для вызова с пульта)
+  void showMenu() {
+    _popupMenuKey.currentState?.showButtonMenu();
+  }
+
   /// Построение элементов меню
   List<PopupMenuEntry<String>> _buildMenuItems(BuildContext context) {
     if (_tracks.isEmpty) {
@@ -189,20 +203,60 @@ class _AudioTrackButtonState extends State<AudioTrackButton> {
       return const SizedBox.shrink();
     }
 
-    return PopupMenuButton<String>(
-      tooltip: 'Audio Track',
-      color: const Color(0xFF1F1F1F),
-      surfaceTintColor: Colors.transparent,
-      padding: EdgeInsets.zero,
-      position: PopupMenuPosition.over,
-      onOpened: widget.onInteraction != null ? () => widget.onInteraction!() : null,
-      itemBuilder: (context) => _buildMenuItems(context),
-      child: Center(
-        child: Text(
-          _buttonText,
-          style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+    // Тема для выпадающего меню: светлое выделение на тёмном фоне (чтобы фокус был виден)
+    final menuTheme = Theme.of(context).copyWith(
+      highlightColor: Colors.white.withValues(alpha: 0.25),
+      hoverColor: Colors.white.withValues(alpha: 0.2),
+      focusColor: Colors.white.withValues(alpha: 0.3),
+      splashColor: Colors.white.withValues(alpha: 0.15),
+    );
+
+    return Theme(
+      data: menuTheme,
+      child: Focus(
+      focusNode: widget.focusNode,
+      onFocusChange: (focused) {
+        setState(() {
+          _isFocused = focused;
+        });
+      },
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent &&
+            (event.logicalKey == LogicalKeyboardKey.select ||
+                event.logicalKey == LogicalKeyboardKey.enter ||
+                event.logicalKey == LogicalKeyboardKey.space)) {
+          widget.onInteraction?.call();
+          showMenu();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        decoration: BoxDecoration(
+          border: _isFocused ? Border.all(color: Colors.white, width: 2) : null,
+          borderRadius: BorderRadius.circular(8),
+          color: _isFocused ? Colors.white.withValues(alpha: 0.2) : Colors.transparent,
+        ),
+        padding: const EdgeInsets.all(8),
+        child: PopupMenuButton<String>(
+          key: _popupMenuKey,
+          tooltip: 'Audio Track',
+          color: const Color(0xFF1F1F1F),
+          surfaceTintColor: Colors.transparent,
+          padding: EdgeInsets.zero,
+          position: PopupMenuPosition.over,
+          onOpened: widget.onInteraction != null ? () => widget.onInteraction!() : null,
+          itemBuilder: (context) => _buildMenuItems(context),
+          child: Center(
+            child: Text(
+              _buttonText,
+              style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+            ),
+          ),
         ),
       ),
+    ),
     );
   }
 }

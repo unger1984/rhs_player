@@ -6,9 +6,8 @@ import 'package:rhs_player/rhs_player.dart';
 /// Подписывается на события треков от контроллера
 class AudioTrackButton extends StatefulWidget {
   final RhsPlayerController controller;
-  final VoidCallback? onControlsShow;
 
-  const AudioTrackButton({super.key, required this.controller, this.onControlsShow});
+  const AudioTrackButton({super.key, required this.controller});
 
   @override
   State<AudioTrackButton> createState() => _AudioTrackButtonState();
@@ -56,7 +55,7 @@ class _AudioTrackButtonState extends State<AudioTrackButton> {
         }
       });
     } catch (e) {
-      debugPrint('[AudioTrackButton] Error loading audio tracks: $e');
+      // Ignore errors
     }
   }
 
@@ -114,9 +113,6 @@ class _AudioTrackButtonState extends State<AudioTrackButton> {
 
   /// Обработка выбора аудиодорожки
   Future<void> _onAudioTrackSelected(String trackId) async {
-    print('[AudioTrackButton] _onAudioTrackSelected called with: $trackId');
-    print('[AudioTrackButton] Current selected: $_selectedTrackId');
-
     // Обновляем UI немедленно, но только если виджет еще mounted
     if (mounted) {
       setState(() {
@@ -125,19 +121,12 @@ class _AudioTrackButtonState extends State<AudioTrackButton> {
     }
 
     try {
-      print('[AudioTrackButton] Calling controller.selectAudioTrack...');
       await widget.controller.selectAudioTrack(trackId);
-      print('[AudioTrackButton] controller.selectAudioTrack completed');
 
       // Перезагружаем треки чтобы обновить selected флаг
       await _loadAudioTracks();
-
-      if (mounted) {
-        widget.onControlsShow?.call();
-      }
     } catch (e) {
-      print('[AudioTrackButton] ERROR selecting track: $e');
-      debugPrint('[AudioTrackButton] Error selecting track: $e');
+      // Ignore errors
     }
   }
 

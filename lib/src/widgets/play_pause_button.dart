@@ -3,9 +3,8 @@ import 'package:rhs_player/rhs_player.dart';
 
 class PlayPauseButton extends StatefulWidget {
   final RhsPlayerController controller;
-  final VoidCallback onControlsShow;
 
-  const PlayPauseButton({super.key, required this.controller, required this.onControlsShow});
+  const PlayPauseButton({super.key, required this.controller});
 
   @override
   State<PlayPauseButton> createState() => _PlayPauseButtonState();
@@ -82,7 +81,6 @@ class _PlayPauseButtonState extends State<PlayPauseButton> {
         } else {
           widget.controller.play();
         }
-        widget.onControlsShow();
       },
     );
   }

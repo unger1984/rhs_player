@@ -5,9 +5,8 @@ import 'package:rhs_player/rhs_player.dart';
 /// Подписывается на события треков от контроллера
 class QualityButton extends StatefulWidget {
   final RhsPlayerController controller;
-  final VoidCallback? onControlsShow;
 
-  const QualityButton({super.key, required this.controller, this.onControlsShow});
+  const QualityButton({super.key, required this.controller});
 
   @override
   State<QualityButton> createState() => _QualityButtonState();
@@ -84,15 +83,6 @@ class _QualityButtonState extends State<QualityButton> {
 
   /// Обработка выбора качества
   Future<void> _onQualitySelected(String trackId) async {
-    print('[QualityButton] _onQualitySelected called with: $trackId');
-    print('[QualityButton] Current selected: $_selectedTrackId');
-
-    // Убрал проверку на дубликаты - позволяем переключать даже если тот же трек
-    // if (_selectedTrackId == trackId) {
-    //   print('[QualityButton] Same track, skipping');
-    //   return;
-    // }
-
     // Обновляем UI немедленно, но только если виджет еще mounted
     if (mounted) {
       setState(() {
@@ -101,15 +91,9 @@ class _QualityButtonState extends State<QualityButton> {
     }
 
     try {
-      print('[QualityButton] Calling controller.selectVideoTrack...');
       await widget.controller.selectVideoTrack(trackId);
-      print('[QualityButton] controller.selectVideoTrack completed');
-      if (mounted) {
-        widget.onControlsShow?.call();
-      }
     } catch (e) {
-      print('[QualityButton] ERROR selecting track: $e');
-      debugPrint('[QualityButton] Error selecting track: $e');
+      // Ignore errors
     }
   }
 

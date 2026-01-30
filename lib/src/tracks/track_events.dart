@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
-import 'native_tracks.dart';
+import 'track_models.dart';
 
 /// Слушает канал событий треков от ExoPlayer и предоставляет обновления списка треков.
 class RhsNativeTracks {

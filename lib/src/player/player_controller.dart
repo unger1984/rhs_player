@@ -3,12 +3,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:rxdart/rxdart.dart';
 
-import '../core/media_source.dart';
-import '../core/drm.dart';
-import 'native_events.dart';
-import 'native_tracks.dart';
-import 'native_tracks_events.dart';
-import 'playback_options.dart';
+import '../media/media_source.dart';
+import '../media/drm_config.dart';
+import '../playback/playback_events.dart';
+import '../playback/playback_state.dart';
+import '../playback/playback_options.dart';
+import '../tracks/track_models.dart';
+import '../tracks/track_events.dart';
 
 /// Мост между Flutter и нативной реализацией плеера.
 ///
@@ -241,10 +242,8 @@ class RhsPlayerController {
 
   /// Выбирает конкретную видео дорожку по [trackId].
   Future<void> selectVideoTrack(String trackId) async {
-    print('[RhsPlayerController] selectVideoTrack called with: $trackId');
     _selectedVideoTrackId = trackId; // Сохраняем выбранный трек
     await _invoke('setVideoTrack', {'id': trackId});
-    print('[RhsPlayerController] setVideoTrack invoke completed');
     // Уведомляем слушателей об изменении дорожек
     _tracksSubject.add(null);
   }

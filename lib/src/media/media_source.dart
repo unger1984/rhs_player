@@ -1,4 +1,4 @@
-import 'drm.dart';
+import 'drm_config.dart';
 
 /// Определение одного медиа элемента для нативного плеера.
 class RhsMediaSource {

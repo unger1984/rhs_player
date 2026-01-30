@@ -3,17 +3,29 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:rhs_player/rhs_player.dart';
 
+String _defaultFormatDuration(Duration duration) {
+  final hours = duration.inHours;
+  final minutes = duration.inMinutes.remainder(60);
+  final seconds = duration.inSeconds.remainder(60);
+  if (hours > 0) {
+    return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+  }
+  return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+}
+
 class PlayerControls extends StatefulWidget {
   final RhsPlayerController controller;
   final RhsPlaybackState state;
-  final String Function(Duration) formatDuration;
+  final String Function(Duration)? formatDuration;
+  final Duration? controlsHideAfter;
   final bool isFullscreen;
 
   const PlayerControls({
     super.key,
     required this.controller,
     required this.state,
-    required this.formatDuration,
+    this.formatDuration,
+    this.controlsHideAfter = const Duration(seconds: 5),
     this.isFullscreen = false,
   });
 
@@ -24,12 +36,39 @@ class PlayerControls extends StatefulWidget {
 class _PlayerControlsState extends State<PlayerControls> {
   bool _showControls = true;
   Timer? _hideControlsTimer;
+  bool _initialHideTimerStarted = false;
+  bool _videoEnded = false;
+
+  bool get _isVideoEnded => widget.state.duration > Duration.zero && widget.state.position >= widget.state.duration;
 
   @override
   void initState() {
     super.initState();
-    // Не запускаем таймер сразу - контролы должны быть видны при инициализации
-    // Таймер запустится после первого взаимодействия
+    if (widget.state.isPlaying && widget.controlsHideAfter != null) {
+      _initialHideTimerStarted = true;
+      _startHideTimer();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant PlayerControls oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_isVideoEnded && !_videoEnded) {
+      _videoEnded = true;
+      _hideControlsTimer?.cancel();
+      if (mounted) setState(() => _showControls = true);
+      return;
+    }
+    if (_videoEnded && widget.state.isPlaying && widget.state.position < widget.state.duration) {
+      _videoEnded = false;
+    }
+    if (!_initialHideTimerStarted &&
+        !oldWidget.state.isPlaying &&
+        widget.state.isPlaying &&
+        widget.controlsHideAfter != null) {
+      _initialHideTimerStarted = true;
+      _startHideTimer();
+    }
   }
 
   @override
@@ -40,7 +79,10 @@ class _PlayerControlsState extends State<PlayerControls> {
 
   void _startHideTimer() {
     _hideControlsTimer?.cancel();
-    _hideControlsTimer = Timer(const Duration(seconds: 3), () {
+    if (_videoEnded) return;
+    final delay = widget.controlsHideAfter;
+    if (delay == null) return;
+    _hideControlsTimer = Timer(delay, () {
       if (mounted && widget.state.error == null) {
         setState(() => _showControls = false);
       }
@@ -55,6 +97,7 @@ class _PlayerControlsState extends State<PlayerControls> {
   }
 
   void _hideControls() {
+    if (_videoEnded) return;
     if (_showControls && widget.state.error == null) {
       setState(() => _showControls = false);
     }
@@ -68,7 +111,11 @@ class _PlayerControlsState extends State<PlayerControls> {
       // Вход в fullscreen
       Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) => _FullscreenPlayerPage(controller: widget.controller, formatDuration: widget.formatDuration),
+          builder: (_) => _FullscreenPlayerPage(
+            controller: widget.controller,
+            formatDuration: widget.formatDuration ?? _defaultFormatDuration,
+            controlsHideAfter: widget.controlsHideAfter,
+          ),
           fullscreenDialog: true,
         ),
       );
@@ -93,72 +140,103 @@ class _PlayerControlsState extends State<PlayerControls> {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Colors.black.withOpacity(0.3),
+                    Colors.black.withValues(alpha: 0.3),
                     Colors.transparent,
                     Colors.transparent,
-                    Colors.black.withOpacity(0.7),
+                    Colors.black.withValues(alpha: 0.7),
                   ],
                 ),
               ),
-              child: Column(
+              child: Stack(
                 children: [
-                  // Индикатор буферизации
-                  if (widget.state.isBuffering)
-                    const Expanded(
-                      child: Center(
-                        child: BufferingIndicator(),
-                      ),
-                    ),
+                  Column(
+                    children: [
+                      // Сообщение об ошибке
+                      if (widget.state.error != null)
+                        ErrorDisplay(error: widget.state.error!, controller: widget.controller),
 
-                  // Сообщение об ошибке
-                  if (widget.state.error != null)
-                    ErrorDisplay(error: widget.state.error!, controller: widget.controller),
-
-                  // Контролы воспроизведения
-                  if (_showControls && widget.state.error == null && !widget.state.isBuffering)
-                    Expanded(
-                      child: Listener(
-                        behavior: HitTestBehavior.translucent,
-                        onPointerDown: (_) => _startHideTimer(),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            ProgressBar(
-                              state: widget.state,
-                              controller: widget.controller,
-                              formatDuration: widget.formatDuration,
+                      // Контролы воспроизведения (показываем и при буферизации, чтобы не пропадали при перемотке)
+                      if (_showControls && widget.state.error == null)
+                        Expanded(
+                          child: Listener(
+                            behavior: HitTestBehavior.translucent,
+                            onPointerDown: (_) => _startHideTimer(),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                ProgressBar(
+                                  state: widget.state,
+                                  controller: widget.controller,
+                                  formatDuration: widget.formatDuration ?? _defaultFormatDuration,
+                                  onInteraction: _startHideTimer,
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.all(16.0),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Row(
+                                          mainAxisAlignment: MainAxisAlignment.start,
+                                          children: [
+                                            QualityButton(
+                                              controller: widget.controller,
+                                              onInteraction: _startHideTimer,
+                                            ),
+                                            const SizedBox(width: 8),
+                                            AudioTrackButton(
+                                              controller: widget.controller,
+                                              onInteraction: _startHideTimer,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          RewindButton(
+                                            state: widget.state,
+                                            controller: widget.controller,
+                                            onInteraction: _startHideTimer,
+                                          ),
+                                          const SizedBox(width: 24),
+                                          PlayPauseButton(
+                                            controller: widget.controller,
+                                            state: widget.state,
+                                            onInteraction: _startHideTimer,
+                                          ),
+                                          const SizedBox(width: 24),
+                                          ForwardButton(
+                                            state: widget.state,
+                                            controller: widget.controller,
+                                            onInteraction: _startHideTimer,
+                                          ),
+                                        ],
+                                      ),
+                                      Expanded(
+                                        child: Row(
+                                          mainAxisAlignment: MainAxisAlignment.end,
+                                          children: [
+                                            FullscreenButton(
+                                              isFullscreen: widget.isFullscreen,
+                                              onPressed: () {
+                                                _startHideTimer();
+                                                _toggleFullscreen(context);
+                                              },
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ),
-                            Padding(
-                              padding: const EdgeInsets.all(16.0),
-                              child: Row(
-                                children: [
-                                  QualityButton(controller: widget.controller),
-                                  const SizedBox(width: 8),
-                                  AudioTrackButton(controller: widget.controller),
-                                  const Spacer(),
-                                  RewindButton(
-                                    state: widget.state,
-                                    controller: widget.controller,
-                                  ),
-                                  const SizedBox(width: 24),
-                                  PlayPauseButton(controller: widget.controller),
-                                  const SizedBox(width: 24),
-                                  ForwardButton(
-                                    state: widget.state,
-                                    controller: widget.controller,
-                                  ),
-                                  const Spacer(),
-                                  FullscreenButton(
-                                    isFullscreen: widget.isFullscreen,
-                                    onPressed: () => _toggleFullscreen(context),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
-                      ),
-                    ),
+                    ],
+                  ),
+                  // Индикатор буферизации по центру плеера
+                  if (widget.state.isBuffering) const Positioned.fill(child: Center(child: BufferingIndicator())),
                 ],
               ),
             ),
@@ -181,8 +259,13 @@ class _PlayerControlsState extends State<PlayerControls> {
 class _FullscreenPlayerPage extends StatefulWidget {
   final RhsPlayerController controller;
   final String Function(Duration) formatDuration;
+  final Duration? controlsHideAfter;
 
-  const _FullscreenPlayerPage({required this.controller, required this.formatDuration});
+  const _FullscreenPlayerPage({
+    required this.controller,
+    required this.formatDuration,
+    required this.controlsHideAfter,
+  });
 
   @override
   State<_FullscreenPlayerPage> createState() => _FullscreenPlayerPageState();
@@ -230,6 +313,7 @@ class _FullscreenPlayerPageState extends State<_FullscreenPlayerPage> {
                       controller: widget.controller,
                       state: stateSnapshot.data ?? events.state.value,
                       formatDuration: widget.formatDuration,
+                      controlsHideAfter: widget.controlsHideAfter,
                       isFullscreen: true,
                     );
                   },

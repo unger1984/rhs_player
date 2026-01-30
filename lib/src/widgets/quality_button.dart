@@ -5,8 +5,9 @@ import 'package:rhs_player/rhs_player.dart';
 /// Подписывается на события треков от контроллера
 class QualityButton extends StatefulWidget {
   final RhsPlayerController controller;
+  final VoidCallback? onInteraction;
 
-  const QualityButton({super.key, required this.controller});
+  const QualityButton({super.key, required this.controller, this.onInteraction});
 
   @override
   State<QualityButton> createState() => _QualityButtonState();
@@ -83,6 +84,7 @@ class _QualityButtonState extends State<QualityButton> {
 
   /// Обработка выбора качества
   Future<void> _onQualitySelected(String trackId) async {
+    widget.onInteraction?.call();
     // Обновляем UI немедленно, но только если виджет еще mounted
     if (mounted) {
       setState(() {
@@ -163,6 +165,7 @@ class _QualityButtonState extends State<QualityButton> {
       surfaceTintColor: Colors.transparent,
       padding: EdgeInsets.zero,
       position: PopupMenuPosition.over,
+      onOpened: widget.onInteraction != null ? () => widget.onInteraction!() : null,
       itemBuilder: (context) => _buildMenuItems(context),
       child: Center(
         child: Text(

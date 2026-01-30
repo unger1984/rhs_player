@@ -36,12 +36,6 @@ class _PlayerScreenContentState extends State<_PlayerScreenContent> {
     );
   }
 
-  String _formatDuration(Duration duration) {
-    final minutes = duration.inMinutes;
-    final seconds = duration.inSeconds.remainder(60);
-    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
-  }
-
   @override
   void dispose() {
     controller.dispose();
@@ -90,7 +84,6 @@ class _PlayerScreenContentState extends State<_PlayerScreenContent> {
                       return PlayerControls(
                         controller: controller,
                         state: state,
-                        formatDuration: _formatDuration,
                       );
                     },
                   );

@@ -5,8 +5,15 @@ class ProgressBar extends StatelessWidget {
   final RhsPlaybackState state;
   final RhsPlayerController controller;
   final String Function(Duration) formatDuration;
+  final VoidCallback? onInteraction;
 
-  const ProgressBar({super.key, required this.state, required this.controller, required this.formatDuration});
+  const ProgressBar({
+    super.key,
+    required this.state,
+    required this.controller,
+    required this.formatDuration,
+    this.onInteraction,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -66,6 +73,7 @@ class ProgressBar extends StatelessWidget {
                     max: state.duration.inMilliseconds.toDouble().clamp(1, double.infinity),
                     value: state.position.inMilliseconds.clamp(0, state.duration.inMilliseconds).toDouble(),
                     onChanged: (value) {
+                      onInteraction?.call();
                       controller.seekTo(Duration(milliseconds: value.toInt()));
                     },
                   ),

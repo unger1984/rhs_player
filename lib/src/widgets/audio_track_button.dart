@@ -6,8 +6,9 @@ import 'package:rhs_player/rhs_player.dart';
 /// Подписывается на события треков от контроллера
 class AudioTrackButton extends StatefulWidget {
   final RhsPlayerController controller;
+  final VoidCallback? onInteraction;
 
-  const AudioTrackButton({super.key, required this.controller});
+  const AudioTrackButton({super.key, required this.controller, this.onInteraction});
 
   @override
   State<AudioTrackButton> createState() => _AudioTrackButtonState();
@@ -113,6 +114,7 @@ class _AudioTrackButtonState extends State<AudioTrackButton> {
 
   /// Обработка выбора аудиодорожки
   Future<void> _onAudioTrackSelected(String trackId) async {
+    widget.onInteraction?.call();
     // Обновляем UI немедленно, но только если виджет еще mounted
     if (mounted) {
       setState(() {
@@ -193,6 +195,7 @@ class _AudioTrackButtonState extends State<AudioTrackButton> {
       surfaceTintColor: Colors.transparent,
       padding: EdgeInsets.zero,
       position: PopupMenuPosition.over,
+      onOpened: widget.onInteraction != null ? () => widget.onInteraction!() : null,
       itemBuilder: (context) => _buildMenuItems(context),
       child: Center(
         child: Text(

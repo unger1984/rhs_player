@@ -3,8 +3,15 @@ import 'package:rhs_player/rhs_player.dart';
 
 class PlayPauseButton extends StatefulWidget {
   final RhsPlayerController controller;
+  final RhsPlaybackState state;
+  final VoidCallback? onInteraction;
 
-  const PlayPauseButton({super.key, required this.controller});
+  const PlayPauseButton({
+    super.key,
+    required this.controller,
+    required this.state,
+    this.onInteraction,
+  });
 
   @override
   State<PlayPauseButton> createState() => _PlayPauseButtonState();
@@ -12,7 +19,9 @@ class PlayPauseButton extends StatefulWidget {
 
 class _PlayPauseButtonState extends State<PlayPauseButton> {
   RhsNativeEvents? _events;
-  bool? _optimisticState;
+  /// Намерение пользователя: null = следовать за isPlaying, true = показывать pause, false = показывать play
+  bool? _userIntent;
+  bool _wasBuffering = false;
 
   @override
   void initState() {
@@ -27,27 +36,26 @@ class _PlayPauseButtonState extends State<PlayPauseButton> {
         _events!.state.removeListener(_onStateChanged);
       }
       _events = events;
-      // Слушаем изменения состояния
       events.state.addListener(_onStateChanged);
       _onStateChanged();
     } else if (events == null) {
-      // Если события еще не готовы, проверяем периодически
       Future.delayed(const Duration(milliseconds: 100), () {
-        if (mounted) {
-          _checkEvents();
-        }
+        if (mounted) _checkEvents();
       });
     }
   }
 
   void _onStateChanged() {
     if (!mounted) return;
+    final state = _events?.state.value;
+    if (state == null) return;
+
     setState(() {
-      // Сбрасываем оптимистичное состояние, когда реальное состояние обновилось
-      final realIsPlaying = _events?.state.value.isPlaying ?? false;
-      if (_optimisticState != null && _optimisticState == realIsPlaying) {
-        _optimisticState = null;
+      // Когда буферизация заканчивается — синхронизируем intent с реальным состоянием
+      if (_wasBuffering && !state.isBuffering) {
+        _userIntent = state.isPlaying;
       }
+      _wasBuffering = state.isBuffering;
     });
   }
 
@@ -57,23 +65,23 @@ class _PlayPauseButtonState extends State<PlayPauseButton> {
     super.dispose();
   }
 
-  bool get _isPlaying {
-    // Используем оптимистичное состояние, если оно есть, иначе реальное
-    if (_optimisticState != null) {
-      return _optimisticState!;
-    }
+  bool get _showAsPlaying {
+    // Если есть намерение пользователя — показываем его
+    if (_userIntent != null) return _userIntent!;
+    // Иначе следуем за реальным isPlaying
     return _events?.state.value.isPlaying ?? false;
   }
 
   @override
   Widget build(BuildContext context) {
     return IconButton(
-      icon: Icon(_isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled, color: Colors.white, size: 64),
+      icon: Icon(_showAsPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled, color: Colors.white, size: 64),
       onPressed: () {
-        final currentIsPlaying = _isPlaying;
-        // Оптимистично обновляем состояние сразу
+        widget.onInteraction?.call();
+        final currentIsPlaying = _showAsPlaying;
+        // Запоминаем намерение пользователя
         setState(() {
-          _optimisticState = !currentIsPlaying;
+          _userIntent = !currentIsPlaying;
         });
         // Вызываем соответствующее действие
         if (currentIsPlaying) {

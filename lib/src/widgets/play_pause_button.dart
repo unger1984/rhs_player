@@ -24,7 +24,6 @@ class _PlayPauseButtonState extends State<PlayPauseButton> {
   RhsNativeEvents? _events;
   StreamSubscription<RhsNativeEvents?>? _eventsSubscription;
   bool? _userIntent;
-  bool _wasBuffering = false;
 
   @override
   void initState() {
@@ -52,7 +51,6 @@ class _PlayPauseButtonState extends State<PlayPauseButton> {
       if (!state.isBuffering) {
         _userIntent = state.isPlaying;
       }
-      _wasBuffering = state.isBuffering;
     });
   }
 

@@ -28,7 +28,7 @@ class _PlayerScreenContentState extends State<_PlayerScreenContent> {
     // RhsMediaSource("https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4")
     controller = RhsPlayerController.single(
       RhsMediaSource(
-        "https://user67561.nowcdn.co/done/widevine_playready/06bff34bc0fed90c578b72d72905680ae9b29e29/index.mpd",
+        "https://user67561.nowcdn.co/done/widevine_playready/864281dc477081737d51b28121d94230aad77ebc/index.mpd",
         drm: const RhsDrmConfig(type: RhsDrmType.widevine, licenseUrl: 'https://drm93075.nowdrm.co/widevine'),
       ),
       autoPlay: true,
@@ -57,9 +57,7 @@ class _PlayerScreenContentState extends State<_PlayerScreenContent> {
                 stream: controller.eventsStream,
                 builder: (context, eventsSnapshot) {
                   if (!eventsSnapshot.hasData || eventsSnapshot.data == null) {
-                    return const Center(
-                      child: CircularProgressIndicator(color: Colors.white),
-                    );
+                    return const Center(child: CircularProgressIndicator(color: Colors.white));
                   }
 
                   return StreamBuilder<RhsPlaybackState>(
@@ -74,17 +72,12 @@ class _PlayerScreenContentState extends State<_PlayerScreenContent> {
                           child: const Center(
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                CircularProgressIndicator(color: Colors.white),
-                              ],
+                              children: [CircularProgressIndicator(color: Colors.white)],
                             ),
                           ),
                         );
                       }
-                      return PlayerControls(
-                        controller: controller,
-                        state: state,
-                      );
+                      return PlayerControls(controller: controller, state: state);
                     },
                   );
                 },

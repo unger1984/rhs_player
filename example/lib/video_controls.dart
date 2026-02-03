@@ -237,6 +237,7 @@ class _VideoControlsState extends State<VideoControls> {
           onToggleVisibilityRequested: _toggleControlsVisibility,
           onSeekBackward: _seekBackward,
           onSeekForward: _seekForward,
+          onHideControlsWhenDownFromLastRow: _hideControls,
           rows: [
             TopBarRow(
               id: 'top_bar_row',

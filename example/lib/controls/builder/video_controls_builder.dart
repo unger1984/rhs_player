@@ -81,6 +81,9 @@ class VideoControlsBuilder extends StatefulWidget {
   final VoidCallback? onSeekBackward;
   final VoidCallback? onSeekForward;
 
+  /// Вызывается при нажатии Вниз, когда фокус на последнем ряду (карусель) — скрыть контролы.
+  final VoidCallback? onHideControlsWhenDownFromLastRow;
+
   const VideoControlsBuilder({
     super.key,
     required this.rows,
@@ -98,6 +101,7 @@ class VideoControlsBuilder extends StatefulWidget {
     this.onToggleVisibilityRequested,
     this.onSeekBackward,
     this.onSeekForward,
+    this.onHideControlsWhenDownFromLastRow,
   });
 
   @override
@@ -120,6 +124,7 @@ class _VideoControlsBuilderState extends State<VideoControlsBuilder> {
       rows: widget.rows,
       initialFocusNode: widget.initialFocusNode,
       initialFocusId: widget.initialFocusId,
+      onDownFromLastRow: widget.onHideControlsWhenDownFromLastRow,
     );
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -136,6 +141,11 @@ class _VideoControlsBuilderState extends State<VideoControlsBuilder> {
   @override
   void didUpdateWidget(covariant VideoControlsBuilder oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (widget.onHideControlsWhenDownFromLastRow !=
+        oldWidget.onHideControlsWhenDownFromLastRow) {
+      _navigationManager.onDownFromLastRow =
+          widget.onHideControlsWhenDownFromLastRow;
+    }
     if (widget.rows != oldWidget.rows) {
       final idToRestore =
           _pendingFocusRestoreId ?? _navigationManager.getFocusedItemId();

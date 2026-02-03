@@ -11,6 +11,10 @@ class NavigationManager {
   final FocusNode? initialFocusNode;
   final String? initialFocusId;
 
+  /// Вызывается при нажатии Вниз, когда фокус уже на последнем ряду (скрыть контролы).
+  VoidCallback? _onDownFromLastRow;
+  set onDownFromLastRow(VoidCallback? value) => _onDownFromLastRow = value;
+
   /// Фокус открытого оверлея (меню качества и т.п.). Пока он задан — не забираем фокус в контролы.
   FocusNode? _overlayFocusNode;
 
@@ -22,7 +26,8 @@ class NavigationManager {
     required List<ControlRow> rows,
     this.initialFocusNode,
     this.initialFocusId,
-  }) {
+    VoidCallback? onDownFromLastRow,
+  }) : _onDownFromLastRow = onDownFromLastRow {
     _rows.addAll(rows);
     _sortRows();
   }
@@ -161,7 +166,10 @@ class NavigationManager {
     }
 
     final targetRowIndex = position.rowIndex + 1;
-    if (targetRowIndex >= _rows.length) return KeyEventResult.handled;
+    if (targetRowIndex >= _rows.length) {
+      _onDownFromLastRow?.call();
+      return KeyEventResult.handled;
+    }
 
     final targetRow = _rows[targetRowIndex];
     final targetItemIndex = position.itemIndex.clamp(

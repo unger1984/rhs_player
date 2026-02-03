@@ -16,52 +16,41 @@ List<BoxShadow> _focusGlow() => [
   ),
 ];
 
-/// Цвет фона: без фокуса и при фокусе — Grey/800
-const Color _kButtonBgNormal = Color(0xFF201B2E);
-
-/// Цвет фона при наведении (hover) — Grey/700
-const Color _kButtonBgHover = Color(0xFF2A303C);
-
-/// Цвет фона при нажатии — Grey/900
-const Color _kButtonBgPressed = Color(0xFF0C0D1D);
-
-/// Цвет иконки при нажатии (Gray/800)
-const Color _kIconPressed = Color(0xFF201B2E);
-
-/// Универсальная круглая кнопка 112x112 для Android TV (все кроме Play/Pause).
-/// При фокусе и нажатии — неоновая обводка как на макете.
-class ControlButton extends StatefulWidget {
-  final VoidCallback onPressed;
-  final Widget child;
+/// Круглая кнопка Play/Pause 136x136: red/600 (обычное, фокус), red/500 (hover), red/700 (нажатие).
+/// При фокусе и нажатии — неоновая обводка.
+class PlayPauseControlButton extends StatefulWidget {
   final FocusNode focusNode;
-  final bool enabled;
+  final bool isPlaying;
+  final VoidCallback onPressed;
 
-  const ControlButton({
+  const PlayPauseControlButton({
     super.key,
-    required this.onPressed,
-    required this.child,
     required this.focusNode,
-    this.enabled = true,
+    required this.isPlaying,
+    required this.onPressed,
   });
 
   @override
-  State<ControlButton> createState() => _ControlButtonState();
+  State<PlayPauseControlButton> createState() => _PlayPauseControlButtonState();
 }
 
-class _ControlButtonState extends State<ControlButton> {
+class _PlayPauseControlButtonState extends State<PlayPauseControlButton> {
   bool _pressed = false;
   bool _hovered = false;
 
-  final double _size = 112.r;
+  final double _size = 136.r;
+
+  Color get _backgroundColor {
+    if (_pressed) return Color(0xFFBD3418);
+    if (_hovered) return Color(0xFFF45E3F);
+    return Color(0xFFDF3F1E);
+  }
 
   @override
   Widget build(BuildContext context) {
     return Focus(
       focusNode: widget.focusNode,
       onKeyEvent: (node, event) {
-        if (!widget.enabled) {
-          return KeyEventResult.ignored;
-        }
         if (event.logicalKey == LogicalKeyboardKey.select ||
             event.logicalKey == LogicalKeyboardKey.enter) {
           if (event is KeyDownEvent) {
@@ -79,44 +68,38 @@ class _ControlButtonState extends State<ControlButton> {
       child: MouseRegion(
         onEnter: (_) => setState(() => _hovered = true),
         onExit: (_) => setState(() => _hovered = false),
-        cursor: widget.enabled
-            ? SystemMouseCursors.click
-            : SystemMouseCursors.basic,
+        cursor: SystemMouseCursors.click,
         child: GestureDetector(
-          onTapDown: (_) =>
-              widget.enabled ? setState(() => _pressed = true) : null,
+          onTapDown: (_) => setState(() => _pressed = true),
           onTapUp: (_) => setState(() => _pressed = false),
           onTapCancel: () => setState(() => _pressed = false),
-          onTap: widget.enabled ? widget.onPressed : null,
+          onTap: widget.onPressed,
           child: Builder(
             builder: (context) {
               final focused = Focus.of(context).hasFocus;
-              final showGlow = (focused || _pressed) && widget.enabled;
-              final bgColor = !widget.enabled
-                  ? _kButtonBgNormal
-                  : _pressed
-                  ? _kButtonBgPressed
-                  : _hovered
-                  ? _kButtonBgHover
-                  : _kButtonBgNormal;
-              final iconColor = !widget.enabled
-                  ? Colors.white38
-                  : _pressed
-                  ? _kIconPressed
-                  : Colors.white;
+              final showGlow = focused || _pressed;
+              final iconColor = _pressed ? Colors.white70 : Colors.white;
 
               return Container(
                 width: _size,
                 height: _size,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: bgColor,
+                  color: _backgroundColor,
                   boxShadow: showGlow ? _focusGlow() : null,
                 ),
                 child: Center(
-                  child: IconTheme.merge(
-                    data: IconThemeData(color: iconColor, size: 32.r),
-                    child: widget.child,
+                  child: SizedBox(
+                    width: 72.w,
+                    height: 72.h,
+                    child: ImageIcon(
+                      AssetImage(
+                        widget.isPlaying
+                            ? 'assets/controls/pause.png'
+                            : 'assets/controls/play.png',
+                      ),
+                      color: iconColor,
+                    ),
                   ),
                 ),
               );

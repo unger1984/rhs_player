@@ -9,6 +9,7 @@ dependencies:
   flutter:
     sdk: flutter
 
+  flutter_screenutil: ^5.9.3
   rhs_player:
     path: ../
   rxdart: ^0.28.0
@@ -22,3 +23,6 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  assets:
+    - assets/controls/

@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:rhs_player/rhs_player.dart';
+import 'package:rhs_player_example/play_pause_control_button.dart';
 import 'package:rhs_player_example/controls/builder/video_controls_builder.dart';
+import 'package:rhs_player_example/controls/core/key_handling_result.dart';
 import 'package:rhs_player_example/controls/items/button_item.dart';
+import 'package:rhs_player_example/controls/items/custom_widget_item.dart';
 import 'package:rhs_player_example/controls/items/progress_slider_item.dart';
 import 'package:rhs_player_example/controls/rows/full_width_row.dart';
 import 'package:rhs_player_example/controls/rows/horizontal_button_row.dart';
@@ -46,17 +50,25 @@ class VideoControls extends StatelessWidget {
               onPressed: _seekBackward,
               child: const Icon(Icons.replay_10, color: Colors.white, size: 32),
             ),
-            ButtonItem(
+            CustomWidgetItem(
               id: 'play_pause_button',
-              onPressed: _togglePlayPause,
-              child: StreamBuilder<RhsPlayerStatus>(
+              keyHandler: (event) {
+                if (event is KeyDownEvent &&
+                    (event.logicalKey == LogicalKeyboardKey.select ||
+                        event.logicalKey == LogicalKeyboardKey.enter)) {
+                  _togglePlayPause();
+                  return KeyHandlingResult.handled;
+                }
+                return KeyHandlingResult.notHandled;
+              },
+              builder: (focusNode) => StreamBuilder<RhsPlayerStatus>(
                 stream: controller.playerStatusStream,
                 builder: (context, snapshot) {
                   final isPlaying = snapshot.data is RhsPlayerStatusPlaying;
-                  return Icon(
-                    isPlaying ? Icons.pause : Icons.play_arrow,
-                    color: Colors.white,
-                    size: 32,
+                  return PlayPauseControlButton(
+                    focusNode: focusNode,
+                    isPlaying: isPlaying,
+                    onPressed: _togglePlayPause,
                   );
                 },
               ),

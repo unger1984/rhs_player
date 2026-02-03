@@ -20,6 +20,13 @@ class _PlayerScreenContent extends StatefulWidget {
 }
 
 class _PlayerScreenContentState extends State<_PlayerScreenContent> {
+  final media0 = RhsMediaSource(
+    "https://user67561.nowcdn.co/done/widevine_playready/06bff34bc0fed90c578b72d72905680ae9b29e29/index.mpd",
+    drm: const RhsDrmConfig(
+      type: RhsDrmType.widevine,
+      licenseUrl: 'https://drm93075.nowdrm.co/widevine',
+    ),
+  );
   final media1 = RhsMediaSource(
     "https://user67561.nowcdn.co/done/widevine_playready/7c6be93192a4888f3491f46fee3dbcb57c77bd08/index.mpd",
     drm: const RhsDrmConfig(
@@ -40,10 +47,7 @@ class _PlayerScreenContentState extends State<_PlayerScreenContent> {
   @override
   void initState() {
     super.initState();
-    // ВАЖНО: DRM (Widevine) может не работать на эмуляторе!
-    // Для тестирования на эмуляторе используйте видео без DRM, например:
-    // RhsMediaSource("https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4")
-    controller = RhsPlayerController.single(media1);
+    controller = RhsPlayerController.single(media0);
 
     controller.addStatusListener((status) {
       if (status is RhsPlayerStatusError) {

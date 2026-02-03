@@ -29,6 +29,9 @@ class _PlayerScreenContentState extends State<_PlayerScreenContent> {
   String? _currentPlayingUrl;
   late RhsPlayerController controller;
 
+  /// Обработчик Back от VideoControls: при открытых контролах скрывает их и возвращает true (pop не делаем).
+  bool Function()? _backHandler;
+
   static Widget _placeholderImage() => Container(
     color: const Color(0xFF2A303C),
     child: Center(
@@ -152,20 +155,30 @@ class _PlayerScreenContentState extends State<_PlayerScreenContent> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Center(
-        child: AspectRatio(
-          aspectRatio: 16 / 9,
-          child: RhsPlayerView(
-            controller: controller,
-            boxFit: BoxFit.contain,
-            overlay: VideoControls(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        // Сначала даём VideoControls скрыть контролы; если не скрыли — выходим с экрана
+        if (_backHandler?.call() == true) return;
+        Navigator.maybePop(context);
+      },
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: Center(
+          child: AspectRatio(
+            aspectRatio: 16 / 9,
+            child: RhsPlayerView(
               controller: controller,
-              onSwitchSource: () {},
-              recommendedItems: _carouselItems,
-              initialRecommendedIndex: 0,
-              onRecommendedItemActivated: _onRecommendedItemActivated,
+              boxFit: BoxFit.contain,
+              overlay: VideoControls(
+                controller: controller,
+                onSwitchSource: () {},
+                recommendedItems: _carouselItems,
+                initialRecommendedIndex: 0,
+                onRecommendedItemActivated: _onRecommendedItemActivated,
+                registerBackHandler: (handler) => _backHandler = handler,
+              ),
             ),
           ),
         ),

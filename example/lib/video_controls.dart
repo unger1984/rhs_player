@@ -32,6 +32,10 @@ class VideoControls extends StatefulWidget {
   /// Если null или [Duration.zero], автоскрытие отключено.
   final Duration? autoHideDelay;
 
+  /// Регистрация обработчика аппаратной кнопки Back (ряд home/back).
+  /// Передаётся функция: при вызове возвращает true, если контролы были видны и скрыты (back поглощён), иначе false.
+  final void Function(bool Function()? handler)? registerBackHandler;
+
   const VideoControls({
     super.key,
     required this.controller,
@@ -42,6 +46,7 @@ class VideoControls extends StatefulWidget {
     this.onRecommendedScrollIndexChanged,
     this.onRecommendedItemActivated,
     this.autoHideDelay = const Duration(seconds: 5),
+    this.registerBackHandler,
   });
 
   @override
@@ -106,6 +111,14 @@ class _VideoControlsState extends State<VideoControls> {
       }
     });
     _resetHideTimer();
+    // Обработчик аппаратной кнопки Back (ряд home/back) — через registerBackHandler + PopScope на экране
+    widget.registerBackHandler?.call(() {
+      if (_controlsVisible) {
+        _hideControls();
+        return true;
+      }
+      return false;
+    });
     // Приоритетный обработчик клавиш - перехватывает ДО системы фокусов
     ServicesBinding.instance.keyboard.addHandler(_handlePriorityKey);
   }
@@ -147,6 +160,7 @@ class _VideoControlsState extends State<VideoControls> {
 
   @override
   void dispose() {
+    widget.registerBackHandler?.call(null);
     ServicesBinding.instance.keyboard.removeHandler(_handlePriorityKey);
     _hideTimer?.cancel();
     _seekingOverlayTimer?.cancel();

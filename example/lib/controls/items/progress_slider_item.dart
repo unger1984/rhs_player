@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:rhs_player/rhs_player.dart';
+import 'package:rhs_player_example/controls/builder/video_controls_builder.dart';
 import 'package:rhs_player_example/controls/core/focusable_item.dart';
 import 'package:rhs_player_example/controls/core/key_handling_result.dart';
 import 'package:rhs_player_example/progress_slider.dart';
@@ -45,11 +46,14 @@ class ProgressSliderItem extends BaseFocusableItem {
 
   @override
   Widget build(BuildContext context) {
+    final nav = VideoControlsNavigation.maybeOf(context);
     return ProgressSlider(
       controller: controller,
       focusNode: focusNode,
       onSeekBackward: onSeekBackward,
       onSeekForward: onSeekForward,
+      onNavigateUp: nav?.onNavigateUp,
+      onNavigateDown: nav?.onNavigateDown,
     );
   }
 }

@@ -6,12 +6,16 @@ import 'package:rhs_player_example/controls/core/focusable_item.dart';
 class ButtonItem extends BaseFocusableItem {
   final Widget child;
   final VoidCallback onPressed;
+  final double? buttonSize;
+  final double? buttonBorderRadius;
 
   ButtonItem({
     required super.id,
     required this.child,
     required this.onPressed,
     super.focusNode,
+    this.buttonSize,
+    this.buttonBorderRadius,
   });
 
   @override
@@ -19,6 +23,8 @@ class ButtonItem extends BaseFocusableItem {
     return ControlButton(
       focusNode: focusNode,
       onPressed: onPressed,
+      size: buttonSize,
+      borderRadius: buttonBorderRadius,
       child: child,
     );
   }

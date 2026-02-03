@@ -98,9 +98,10 @@ class _ProgressTrackShape extends RoundedRectSliderTrackShape {
       );
     }
 
+    // Сначала неактивный трек (757B8A) под ползунком до конца, затем буфер поверх.
     if (isLTR) {
-      if (bufferedX < right) {
-        drawRRect(bufferedX, right, inactivePaint, leftR: Radius.zero);
+      if (thumbX < right) {
+        drawRRect(thumbX, right, inactivePaint, leftR: Radius.zero);
       }
       if (thumbX < bufferedX) {
         drawRRect(
@@ -115,8 +116,8 @@ class _ProgressTrackShape extends RoundedRectSliderTrackShape {
         drawRRect(left, thumbX, activePaint, rightR: Radius.zero);
       }
     } else {
-      if (left < bufferedX) {
-        drawRRect(left, bufferedX, inactivePaint, rightR: Radius.zero);
+      if (left < thumbX) {
+        drawRRect(left, thumbX, inactivePaint, rightR: Radius.zero);
       }
       if (bufferedX < thumbX) {
         drawRRect(
@@ -190,11 +191,14 @@ class _ProgressThumbShape extends SliderComponentShape {
 
 /// Слайдер прогресса воспроизведения с поддержкой перемотки клавишами.
 /// Трек: 12.h без фокуса, 16.h с фокусом. Ползунок: 16.r с бордером без фокуса, 40.r заливка с фокусом.
+/// Влево/вправо — перемотка, вверх/вниз — переход фокуса на другой ряд (если заданы callback).
 class ProgressSlider extends StatelessWidget {
   final RhsPlayerController controller;
   final FocusNode focusNode;
   final VoidCallback onSeekBackward;
   final VoidCallback onSeekForward;
+  final VoidCallback? onNavigateUp;
+  final VoidCallback? onNavigateDown;
 
   const ProgressSlider({
     super.key,
@@ -202,6 +206,8 @@ class ProgressSlider extends StatelessWidget {
     required this.focusNode,
     required this.onSeekBackward,
     required this.onSeekForward,
+    this.onNavigateUp,
+    this.onNavigateDown,
   });
 
   @override
@@ -235,16 +241,31 @@ class ProgressSlider extends StatelessWidget {
         return Focus(
           focusNode: focusNode,
           onKeyEvent: (node, event) {
-            if (event is KeyDownEvent) {
-              if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+            if (event is! KeyDownEvent) return KeyEventResult.ignored;
+            switch (event.logicalKey) {
+              case LogicalKeyboardKey.arrowLeft:
                 onSeekBackward();
                 return KeyEventResult.handled;
-              } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+              case LogicalKeyboardKey.arrowRight:
                 onSeekForward();
                 return KeyEventResult.handled;
-              }
+              case LogicalKeyboardKey.arrowUp:
+                final up = onNavigateUp;
+                if (up != null) {
+                  up();
+                  return KeyEventResult.handled;
+                }
+                return KeyEventResult.ignored;
+              case LogicalKeyboardKey.arrowDown:
+                final down = onNavigateDown;
+                if (down != null) {
+                  down();
+                  return KeyEventResult.handled;
+                }
+                return KeyEventResult.ignored;
+              default:
+                return KeyEventResult.ignored;
             }
-            return KeyEventResult.ignored;
           },
           child: Builder(
             builder: (context) {

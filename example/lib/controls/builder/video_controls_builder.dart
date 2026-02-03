@@ -2,10 +2,35 @@ import 'package:flutter/material.dart';
 import 'package:rhs_player_example/controls/core/control_row.dart';
 import 'package:rhs_player_example/controls/navigation/navigation_manager.dart';
 
+/// Callback'и вертикальной навигации для элементов, перехватывающих фокус (напр. слайдер)
+class VideoControlsNavigation extends InheritedWidget {
+  const VideoControlsNavigation({
+    super.key,
+    required this.onNavigateUp,
+    required this.onNavigateDown,
+    required super.child,
+  });
+
+  final VoidCallback onNavigateUp;
+  final VoidCallback onNavigateDown;
+
+  static VideoControlsNavigation? maybeOf(BuildContext context) {
+    return context
+        .dependOnInheritedWidgetOfExactType<VideoControlsNavigation>();
+  }
+
+  @override
+  bool updateShouldNotify(VideoControlsNavigation oldWidget) {
+    return onNavigateUp != oldWidget.onNavigateUp ||
+        onNavigateDown != oldWidget.onNavigateDown;
+  }
+}
+
 /// Билдер для декларативного построения системы управления
 class VideoControlsBuilder extends StatefulWidget {
   final List<ControlRow> rows;
   final FocusNode? initialFocusNode;
+  final String? initialFocusId;
   final Color? backgroundColor;
   final EdgeInsets? padding;
   final MainAxisAlignment mainAxisAlignment;
@@ -16,6 +41,7 @@ class VideoControlsBuilder extends StatefulWidget {
     super.key,
     required this.rows,
     this.initialFocusNode,
+    this.initialFocusId,
     this.backgroundColor,
     this.padding,
     this.mainAxisAlignment = MainAxisAlignment.end,
@@ -38,6 +64,7 @@ class _VideoControlsBuilderState extends State<VideoControlsBuilder> {
     _navigationManager = NavigationManager(
       rows: widget.rows,
       initialFocusNode: widget.initialFocusNode,
+      initialFocusId: widget.initialFocusId,
     );
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -54,21 +81,31 @@ class _VideoControlsBuilderState extends State<VideoControlsBuilder> {
 
   @override
   Widget build(BuildContext context) {
-    return Focus(
-      focusNode: _rootFocusNode,
-      onKeyEvent: _navigationManager.handleKey,
-      child: Container(
-        color: widget.backgroundColor ?? Colors.black.withAlpha(128),
-        padding: widget.padding,
-        child: Column(
-          mainAxisAlignment: widget.mainAxisAlignment,
-          crossAxisAlignment: widget.crossAxisAlignment,
-          children: [
-            for (var i = 0; i < widget.rows.length; i++) ...[
-              widget.rows[i].build(context),
-              if (i < widget.rows.length - 1) SizedBox(height: widget.spacing),
-            ],
-          ],
+    return VideoControlsNavigation(
+      onNavigateUp: () => _navigationManager.navigateUp(null),
+      onNavigateDown: () => _navigationManager.navigateDown(null),
+      child: FocusScope(
+        child: Focus(
+          focusNode: _rootFocusNode,
+          onKeyEvent: _navigationManager.handleKey,
+          child: Container(
+            color: widget.backgroundColor ?? Colors.black.withAlpha(128),
+            padding: widget.padding,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.start,
+              crossAxisAlignment: widget.crossAxisAlignment,
+              children: [
+                if (widget.rows.isNotEmpty) ...[
+                  widget.rows.first.build(context),
+                  const Spacer(),
+                  for (var i = 1; i < widget.rows.length; i++) ...[
+                    if (i > 1) SizedBox(height: widget.spacing),
+                    widget.rows[i].build(context),
+                  ],
+                ],
+              ],
+            ),
+          ),
         ),
       ),
     );

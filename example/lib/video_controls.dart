@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:rhs_player/rhs_player.dart';
 import 'package:rhs_player_example/play_pause_control_button.dart';
 import 'package:rhs_player_example/controls/builder/video_controls_builder.dart';
@@ -9,6 +10,7 @@ import 'package:rhs_player_example/controls/items/custom_widget_item.dart';
 import 'package:rhs_player_example/controls/items/progress_slider_item.dart';
 import 'package:rhs_player_example/controls/rows/full_width_row.dart';
 import 'package:rhs_player_example/controls/rows/horizontal_button_row.dart';
+import 'package:rhs_player_example/controls/rows/top_bar_row.dart';
 
 /// Виджет управления видео с поддержкой Android TV пульта
 /// Использует новую систему навигации с Chain of Responsibility паттерном
@@ -25,11 +27,33 @@ class VideoControls extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return VideoControlsBuilder(
+      initialFocusId: 'play_pause_button',
       rows: [
-        // Ряд 0: Слайдер прогресса
+        TopBarRow(
+          id: 'top_bar_row',
+          index: 0,
+          height: 124.h,
+          backgroundColor: const Color(0xCC201B2E),
+          leftPadding: 120.w,
+          title: 'Тут будет название фильма',
+          items: [
+            ButtonItem(
+              id: 'back_button',
+              onPressed: () => Navigator.of(context).pop(),
+              buttonSize: 76,
+              buttonBorderRadius: 16,
+              child: Center(
+                child: Padding(
+                  padding: EdgeInsets.only(left: 4.w),
+                  child: Icon(Icons.arrow_back_ios, color: Colors.white),
+                ),
+              ),
+            ),
+          ],
+        ),
         FullWidthRow(
           id: 'progress_row',
-          index: 0,
+          index: 1,
           items: [
             ProgressSliderItem(
               id: 'progress_slider',
@@ -39,16 +63,21 @@ class VideoControls extends StatelessWidget {
             ),
           ],
         ),
-
-        // Ряд 1: Кнопки управления
         HorizontalButtonRow(
           id: 'control_buttons_row',
-          index: 1,
+          index: 2,
+          spacing: 32.w,
           items: [
             ButtonItem(
               id: 'rewind_button',
               onPressed: _seekBackward,
-              child: const Icon(Icons.replay_10, color: Colors.white, size: 32),
+              child: Center(
+                child: SizedBox(
+                  width: 56.w,
+                  height: 56.h,
+                  child: ImageIcon(AssetImage('assets/controls/rewind_L.png')),
+                ),
+              ),
             ),
             CustomWidgetItem(
               id: 'play_pause_button',
@@ -76,10 +105,12 @@ class VideoControls extends StatelessWidget {
             ButtonItem(
               id: 'forward_button',
               onPressed: _seekForward,
-              child: const Icon(
-                Icons.forward_10,
-                color: Colors.white,
-                size: 32,
+              child: Center(
+                child: SizedBox(
+                  width: 56.w,
+                  height: 56.h,
+                  child: ImageIcon(AssetImage('assets/controls/rewind_R.png')),
+                ),
               ),
             ),
             ButtonItem(

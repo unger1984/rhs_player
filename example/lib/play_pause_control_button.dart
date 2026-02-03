@@ -38,8 +38,6 @@ class _PlayPauseControlButtonState extends State<PlayPauseControlButton> {
   bool _pressed = false;
   bool _hovered = false;
 
-  final double _size = 136.r;
-
   Color get _backgroundColor {
     if (_pressed) return Color(0xFFBD3418);
     if (_hovered) return Color(0xFFF45E3F);
@@ -81,8 +79,8 @@ class _PlayPauseControlButtonState extends State<PlayPauseControlButton> {
               final iconColor = _pressed ? Colors.white70 : Colors.white;
 
               return Container(
-                width: _size,
-                height: _size,
+                width: 136.w,
+                height: 136.h,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: _backgroundColor,

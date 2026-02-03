@@ -28,7 +28,7 @@ const Color _kButtonBgPressed = Color(0xFF0C0D1D);
 /// Цвет иконки при нажатии (Gray/800)
 const Color _kIconPressed = Color(0xFF201B2E);
 
-/// Универсальная круглая кнопка 112x112 для Android TV (все кроме Play/Pause).
+/// Универсальная кнопка для Android TV (круглая 112x112 или квадратная с радиусом).
 /// При фокусе и нажатии — неоновая обводка как на макете.
 class ControlButton extends StatefulWidget {
   final VoidCallback onPressed;
@@ -36,12 +36,20 @@ class ControlButton extends StatefulWidget {
   final FocusNode focusNode;
   final bool enabled;
 
+  /// Размер стороны. По умолчанию 112 — круглая кнопка.
+  final double? size;
+
+  /// Радиус скругления. Если задан — кнопка квадратная с закруглёнными краями.
+  final double? borderRadius;
+
   const ControlButton({
     super.key,
     required this.onPressed,
     required this.child,
     required this.focusNode,
     this.enabled = true,
+    this.size,
+    this.borderRadius,
   });
 
   @override
@@ -52,7 +60,9 @@ class _ControlButtonState extends State<ControlButton> {
   bool _pressed = false;
   bool _hovered = false;
 
-  final double _size = 112.r;
+  double get _size => (widget.size ?? 112).r;
+  double? get _borderRadius =>
+      widget.borderRadius != null ? (widget.borderRadius!).r : null;
 
   @override
   Widget build(BuildContext context) {
@@ -109,7 +119,12 @@ class _ControlButtonState extends State<ControlButton> {
                 width: _size,
                 height: _size,
                 decoration: BoxDecoration(
-                  shape: BoxShape.circle,
+                  shape: _borderRadius == null
+                      ? BoxShape.circle
+                      : BoxShape.rectangle,
+                  borderRadius: _borderRadius != null
+                      ? BorderRadius.circular(_borderRadius!)
+                      : null,
                   color: bgColor,
                   boxShadow: showGlow ? _focusGlow() : null,
                 ),

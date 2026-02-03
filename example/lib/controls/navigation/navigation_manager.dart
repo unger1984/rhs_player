@@ -48,7 +48,11 @@ class NavigationManager {
   }
 
   /// Обработка клавиши с Chain of Responsibility
-  KeyEventResult handleKey(FocusNode node, KeyEvent event) {
+  KeyEventResult handleKey(
+    FocusNode node,
+    KeyEvent event, {
+    bool controlsVisible = true,
+  }) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
 
     final currentFocus = FocusManager.instance.primaryFocus;
@@ -66,6 +70,17 @@ class NavigationManager {
       }
       _requestInitialFocus(deferred: true);
       return KeyEventResult.handled;
+    }
+
+    // Когда контролы скрыты, НЕ передаем события элементам (кроме навигационных)
+    // Это предотвращает обработку OK кнопкой play/pause когда контролы скрыты
+    if (!controlsVisible) {
+      final key = event.logicalKey;
+      debugPrint(
+        'NavigationManager: controlsVisible=false, key=$key, skipping element handler',
+      );
+      // Навигационные клавиши обрабатываются на уровне билдера
+      return KeyEventResult.ignored;
     }
 
     // Сначала даем элементу возможность обработать клавишу

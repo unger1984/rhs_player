@@ -64,6 +64,9 @@ class VideoControlsBuilder extends StatefulWidget {
   /// Видимость контролов (верхняя группа вверх, нижняя вниз при false).
   final bool controlsVisible;
 
+  /// Показывать ряд с ProgressSlider (контролы открыты или идёт перемотка).
+  final bool showProgressSlider;
+
   /// Вызывается при инициализации билдера; передаёт наружу [requestFocusOnId] и [scheduleFocusRestore],
   /// чтобы родитель мог переводить фокус (контекст родителя не видит VideoControlsNavigation).
   final void Function(NavCallbacks callbacks)? onNavReady;
@@ -89,6 +92,7 @@ class VideoControlsBuilder extends StatefulWidget {
     this.crossAxisAlignment = CrossAxisAlignment.stretch,
     this.spacing = 20,
     this.controlsVisible = true,
+    this.showProgressSlider = true,
     this.onNavReady,
     this.onControlsInteraction,
     this.onToggleVisibilityRequested,
@@ -150,13 +154,14 @@ class _VideoControlsBuilderState extends State<VideoControlsBuilder> {
     if (widget.controlsVisible != oldWidget.controlsVisible) {
       if (!widget.controlsVisible) {
         _focusedIdBeforeHide = _navigationManager.getFocusedItemId();
+        // Сразу переводим фокус на root, не дожидаясь postFrameCallback
+        _rootFocusNode.requestFocus();
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
-          FocusManager.instance.primaryFocus?.unfocus();
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (!mounted) return;
+          // Убеждаемся что фокус на root
+          if (!_rootFocusNode.hasFocus) {
             _rootFocusNode.requestFocus();
-          });
+          }
         });
       } else {
         final idToRestore = _focusedIdBeforeHide ?? widget.initialFocusId;
@@ -183,71 +188,107 @@ class _VideoControlsBuilderState extends State<VideoControlsBuilder> {
       requestInitialFocus: () => _navigationManager.requestInitialFocus(),
       scheduleFocusRestore: (id) => setState(() => _pendingFocusRestoreId = id),
       requestFocusOnId: (id) => _navigationManager.requestFocusOnId(id),
-      child: FocusScope(
-        child: Focus(
-          focusNode: _rootFocusNode,
-          onKeyEvent: (FocusNode node, KeyEvent event) {
-            if (event is KeyDownEvent) {
-              final key = event.logicalKey;
-              if (key == LogicalKeyboardKey.info ||
-                  key == LogicalKeyboardKey.contextMenu) {
-                widget.onToggleVisibilityRequested?.call();
-                return KeyEventResult.handled;
-              }
-              // Когда контролы скрыты: влево/вправо — перемотка, вверх/вниз — показать контролы
-              if (!widget.controlsVisible) {
-                switch (key) {
-                  case LogicalKeyboardKey.arrowLeft:
-                    widget.onSeekBackward?.call();
-                    return KeyEventResult.handled;
-                  case LogicalKeyboardKey.arrowRight:
-                    widget.onSeekForward?.call();
-                    return KeyEventResult.handled;
-                  case LogicalKeyboardKey.arrowUp:
-                  case LogicalKeyboardKey.arrowDown:
-                    widget.onControlsInteraction?.call();
-                    return KeyEventResult.handled;
-                  default:
-                    break;
+      child: ExcludeFocus(
+        excluding: !widget.controlsVisible,
+        child: FocusScope(
+          child: Focus(
+            focusNode: _rootFocusNode,
+            onKeyEvent: (FocusNode node, KeyEvent event) {
+              if (event is KeyDownEvent) {
+                final key = event.logicalKey;
+                final primaryFocus = FocusManager.instance.primaryFocus;
+                debugPrint(
+                  'VideoControlsBuilder onKeyEvent: key=$key, controlsVisible=${widget.controlsVisible}, rootHasFocus=${_rootFocusNode.hasFocus}, primaryFocus=${primaryFocus?.debugLabel}',
+                );
+                if (key == LogicalKeyboardKey.info ||
+                    key == LogicalKeyboardKey.contextMenu) {
+                  widget.onToggleVisibilityRequested?.call();
+                  return KeyEventResult.handled;
                 }
-              } else {
-                widget.onControlsInteraction?.call();
+                // Когда контролы скрыты: влево/вправо — перемотка, вверх/вниз/OK — показать контролы
+                if (!widget.controlsVisible) {
+                  debugPrint(
+                    'VideoControlsBuilder: key=$key, controlsVisible=false, hasFocus=${_rootFocusNode.hasFocus}',
+                  );
+                  switch (key) {
+                    case LogicalKeyboardKey.arrowLeft:
+                      widget.onSeekBackward?.call();
+                      return KeyEventResult.handled;
+                    case LogicalKeyboardKey.arrowRight:
+                      widget.onSeekForward?.call();
+                      return KeyEventResult.handled;
+                    case LogicalKeyboardKey.arrowUp:
+                    case LogicalKeyboardKey.arrowDown:
+                      widget.onControlsInteraction?.call();
+                      return KeyEventResult.handled;
+                    case LogicalKeyboardKey.select:
+                    case LogicalKeyboardKey.enter:
+                      debugPrint(
+                        'VideoControlsBuilder: OK pressed, showing controls',
+                      );
+                      // Показать контролы и поставить фокус на initial (play/pause)
+                      setState(
+                        () => _focusedIdBeforeHide = widget.initialFocusId,
+                      );
+                      widget.onControlsInteraction?.call();
+                      return KeyEventResult.handled;
+                    default:
+                      break;
+                  }
+                } else {
+                  widget.onControlsInteraction?.call();
+                }
               }
-            }
-            return _navigationManager.handleKey(node, event);
-          },
-          child: Container(
-            color: widget.backgroundColor ?? Colors.black.withAlpha(128),
-            padding: widget.padding,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.start,
-              crossAxisAlignment: widget.crossAxisAlignment,
-              children: [
-                if (widget.rows.isNotEmpty) ...[
-                  AnimatedSlide(
-                    offset: Offset(0, widget.controlsVisible ? 0 : -1),
-                    duration: const Duration(milliseconds: 300),
-                    curve: Curves.easeInOut,
-                    child: widget.rows.first.build(context),
-                  ),
-                  const Spacer(),
-                  AnimatedSlide(
-                    offset: Offset(0, widget.controlsVisible ? 0 : 1),
-                    duration: const Duration(milliseconds: 300),
-                    curve: Curves.easeInOut,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: widget.crossAxisAlignment,
-                      children: [
-                        for (var i = 1; i < widget.rows.length; i++) ...[
-                          if (i > 1) SizedBox(height: widget.spacing.h),
-                          widget.rows[i].build(context),
-                        ],
-                      ],
+              return _navigationManager.handleKey(
+                node,
+                event,
+                controlsVisible: widget.controlsVisible,
+              );
+            },
+            child: Container(
+              color: widget.backgroundColor ?? Colors.black.withAlpha(128),
+              padding: widget.padding,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.start,
+                crossAxisAlignment: widget.crossAxisAlignment,
+                children: [
+                  if (widget.rows.isNotEmpty) ...[
+                    AnimatedSlide(
+                      offset: Offset(0, widget.controlsVisible ? 0 : -1),
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                      child: widget.rows.first.build(context),
                     ),
-                  ),
+                    const Spacer(),
+                    // Слайдер прогресса только при открытых контролах или перемотке; выезжает/заезжает снизу.
+                    if (widget.showProgressSlider && widget.rows.length > 1)
+                      AnimatedSlide(
+                        offset: Offset.zero,
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeInOut,
+                        child: widget.rows[1].build(context),
+                      ),
+                    if (widget.rows.length > 2) ...[
+                      SizedBox(height: widget.spacing.h),
+                      AnimatedSlide(
+                        offset: Offset(0, widget.controlsVisible ? 0 : 1),
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeInOut,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: widget.crossAxisAlignment,
+                          children: [
+                            for (var i = 2; i < widget.rows.length; i++) ...[
+                              if (i > 2) SizedBox(height: widget.spacing.h),
+                              widget.rows[i].build(context),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),

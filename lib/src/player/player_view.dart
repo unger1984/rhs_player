@@ -39,14 +39,17 @@ class RhsPlayerView extends StatelessWidget {
         );
       },
       onCreatePlatformView: (params) {
-        final nativeController = services.PlatformViewsService.initSurfaceAndroidView(
-          id: params.id,
-          viewType: viewType,
-          layoutDirection: TextDirection.ltr,
-          creationParams: creationParams,
-          creationParamsCodec: const services.StandardMessageCodec(),
+        final nativeController =
+            services.PlatformViewsService.initSurfaceAndroidView(
+              id: params.id,
+              viewType: viewType,
+              layoutDirection: TextDirection.ltr,
+              creationParams: creationParams,
+              creationParamsCodec: const services.StandardMessageCodec(),
+            );
+        nativeController.addOnPlatformViewCreatedListener(
+          params.onPlatformViewCreated,
         );
-        nativeController.addOnPlatformViewCreatedListener(params.onPlatformViewCreated);
         nativeController.addOnPlatformViewCreatedListener((id) {
           controller.attachViewId(id);
           controller.setBoxFit(boxFit);
@@ -58,12 +61,7 @@ class RhsPlayerView extends StatelessWidget {
 
     // Если есть overlay, размещаем его поверх видео
     if (overlay != null) {
-      return Stack(
-        children: [
-          platformView,
-          overlay!,
-        ],
-      );
+      return Stack(children: [platformView, overlay!]);
     }
 
     return platformView;

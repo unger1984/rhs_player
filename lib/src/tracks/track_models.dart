@@ -118,7 +118,12 @@ class RhsAudioTrack {
   /// Флаг выбранной дорожки
   final bool selected;
 
-  const RhsAudioTrack({required this.id, this.label, this.language, required this.selected});
+  const RhsAudioTrack({
+    required this.id,
+    this.label,
+    this.language,
+    required this.selected,
+  });
 
   /// Создает объект из карты данных
   factory RhsAudioTrack.fromMap(Map<dynamic, dynamic> map) => RhsAudioTrack(
@@ -146,14 +151,21 @@ class RhsSubtitleTrack {
   /// Флаг принудительных субтитров
   final bool isForced;
 
-  const RhsSubtitleTrack({required this.id, this.label, this.language, required this.selected, this.isForced = false});
+  const RhsSubtitleTrack({
+    required this.id,
+    this.label,
+    this.language,
+    required this.selected,
+    this.isForced = false,
+  });
 
   /// Создает объект из карты данных
-  factory RhsSubtitleTrack.fromMap(Map<dynamic, dynamic> map) => RhsSubtitleTrack(
-    id: map['id']?.toString() ?? '',
-    label: map['label']?.toString(),
-    language: map['language']?.toString(),
-    selected: map['selected'] == true,
-    isForced: map['forced'] == true,
-  );
+  factory RhsSubtitleTrack.fromMap(Map<dynamic, dynamic> map) =>
+      RhsSubtitleTrack(
+        id: map['id']?.toString() ?? '',
+        label: map['label']?.toString(),
+        language: map['language']?.toString(),
+        selected: map['selected'] == true,
+        isForced: map['forced'] == true,
+      );
 }

@@ -18,7 +18,10 @@ void main() {
     expect(find.byType(TextField), findsOneWidget);
     expect(find.text('Play Now'), findsOneWidget);
 
-    await tester.enterText(find.byType(TextField), 'https://example.com/video.mp4');
+    await tester.enterText(
+      find.byType(TextField),
+      'https://example.com/video.mp4',
+    );
     await tester.tap(find.text('Play Now'));
     await tester.pump();
 

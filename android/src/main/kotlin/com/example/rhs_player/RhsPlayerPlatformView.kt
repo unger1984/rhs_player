@@ -541,8 +541,12 @@ class RhsPlayerPlatformView(
   private fun sendTracksEvent() {
     val sink = tracksEventsSink ?: return
     try {
-      val tracks = collectVideoTracks()
-      sink.success(tracks)
+      val videoTracks = collectVideoTracks()
+      val audioTracks = collectAudioTracks()
+      sink.success(mapOf(
+        "video" to videoTracks,
+        "audio" to audioTracks
+      ))
     } catch (e: Exception) {
       // Игнорируем ошибки при отправке событий
     }

@@ -14,6 +14,10 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(title: 'Rhs_player Example', home: PlayerScreen(), debugShowCheckedModeBanner: false);
+    return MaterialApp(
+      title: 'Rhs_player Example',
+      home: PlayerScreen(),
+      // debugShowCheckedModeBanner: false,
+    );
   }
 }

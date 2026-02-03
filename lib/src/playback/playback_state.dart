@@ -29,4 +29,10 @@ class RhsPlaybackState {
     required this.isBuffering,
     this.error,
   });
+
+  @override
+  String toString() {
+    // TODO: implement toString
+    return 'RhsPlaybackState(position: $position, duration: $duration, bufferedPosition: $bufferedPosition, isPlaying: $isPlaying, isBuffering: $isBuffering, error: $error)';
+  }
 }

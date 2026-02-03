@@ -11,6 +11,8 @@ export 'src/media/drm_config.dart';
 export 'src/playback/playback_state.dart';
 export 'src/playback/playback_events.dart';
 export 'src/playback/playback_options.dart';
+export 'src/playback/player_status.dart';
+export 'src/playback/position_data.dart';
 export 'src/tracks/track_models.dart';
 export 'src/tracks/track_events.dart';
 
@@ -19,17 +21,6 @@ export 'src/player/player_controller.dart';
 export 'src/player/player_view.dart';
 
 // UI Widgets
-export 'src/widgets/audio_track_button.dart';
-export 'src/widgets/buffering_indicator.dart';
-export 'src/widgets/error_display.dart';
-export 'src/widgets/focusable_control_button.dart';
-export 'src/widgets/forward_button.dart';
-export 'src/widgets/fullscreen_button.dart';
-export 'src/widgets/play_pause_button.dart';
-export 'src/widgets/player_controls.dart';
-export 'src/widgets/progress_bar.dart';
-export 'src/widgets/quality_button.dart';
-export 'src/widgets/rewind_button.dart';
 import 'rhs_player_platform_interface.dart';
 
 /// Простой фасад вокруг интерфейса платформы. В основном используется

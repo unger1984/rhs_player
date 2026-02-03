@@ -7,10 +7,10 @@ import 'playback_state.dart';
 class RhsNativeEvents {
   /// Идентификатор представления
   final int viewId;
-  
+
   /// Канал событий платформы
   late final EventChannel _eventChannel;
-  
+
   /// Подписка на события
   StreamSubscription? _sub;
 
@@ -33,7 +33,10 @@ class RhsNativeEvents {
   /// Начинает прослушивание событий
   void start() {
     _sub?.cancel();
-    _sub = _eventChannel.receiveBroadcastStream().listen(_onEvent, onError: (_) {});
+    _sub = _eventChannel.receiveBroadcastStream().listen(
+      _onEvent,
+      onError: (_) {},
+    );
   }
 
   /// Обрабатывает событие от платформы

@@ -1,19 +1,19 @@
 /// Поддерживаемые схемы DRM для нативных плееров.
-enum RhsDrmType { 
+enum RhsDrmType {
   /// Нет DRM защиты
-  none, 
-  
+  none,
+
   /// Widevine DRM (Google)
-  widevine, 
-  
+  widevine,
+
   /// ClearKey DRM (открытый ключ)
-  clearKey 
+  clearKey,
 }
 
 /// Набор конфигурации DRM, передаваемый движку нативного плеера.
 ///
-/// Объект конфигурации используется на Android (Widevine / ClearKey). 
-/// Значения передаются без изменений, поэтому форматы заголовков и токенов, 
+/// Объект конфигурации используется на Android (Widevine / ClearKey).
+/// Значения передаются без изменений, поэтому форматы заголовков и токенов,
 /// специфичные для провайдера, могут использоваться без модификации.
 class RhsDrmConfig {
   /// Схема DRM для активации. Используйте [RhsDrmType.none] для незащищенного контента.
@@ -25,16 +25,23 @@ class RhsDrmConfig {
   /// Дополнительные HTTP заголовки, добавляемые к запросам лицензий.
   final Map<String, String>? headers;
 
-  /// JSON полезная нагрузка для ClearKey на Android. Значение передается 
-  /// непосредственно в ExoPlayer, поэтому оно должно содержать пары 
+  /// JSON полезная нагрузка для ClearKey на Android. Значение передается
+  /// непосредственно в ExoPlayer, поэтому оно должно содержать пары
   /// ключ/значение в кодировке base64.
-  final String? clearKey; // JSON как требуется ExoPlayer при использовании ClearKey
+  final String?
+  clearKey; // JSON как требуется ExoPlayer при использовании ClearKey
 
   /// Дополнительный идентификатор контента, используемый некоторыми серверами лицензий.
   final String? contentId;
 
   /// Создает конфигурацию DRM.
-  const RhsDrmConfig({required this.type, this.licenseUrl, this.headers, this.clearKey, this.contentId});
+  const RhsDrmConfig({
+    required this.type,
+    this.licenseUrl,
+    this.headers,
+    this.clearKey,
+    this.contentId,
+  });
 
   /// Указывает, включена ли DRM для текущего медиа.
   bool get isDrm => type != RhsDrmType.none;

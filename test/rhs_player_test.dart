@@ -4,7 +4,9 @@ import 'package:rhs_player/rhs_player.dart';
 import 'package:rhs_player/rhs_player_method_channel.dart';
 import 'package:rhs_player/rhs_player_platform_interface.dart';
 
-class MockRhsPlayerPlatform with MockPlatformInterfaceMixin implements RhsPlayerPlatform {
+class MockRhsPlayerPlatform
+    with MockPlatformInterfaceMixin
+    implements RhsPlayerPlatform {
   @override
   Future<String?> getPlatformVersion() => Future.value('42');
 }

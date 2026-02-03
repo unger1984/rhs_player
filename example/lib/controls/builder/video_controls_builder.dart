@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:rhs_player_example/controls/core/control_row.dart';
 import 'package:rhs_player_example/controls/navigation/navigation_manager.dart';
@@ -60,9 +61,22 @@ class VideoControlsBuilder extends StatefulWidget {
   final CrossAxisAlignment crossAxisAlignment;
   final double spacing;
 
+  /// Видимость контролов (верхняя группа вверх, нижняя вниз при false).
+  final bool controlsVisible;
+
   /// Вызывается при инициализации билдера; передаёт наружу [requestFocusOnId] и [scheduleFocusRestore],
   /// чтобы родитель мог переводить фокус (контекст родителя не видит VideoControlsNavigation).
   final void Function(NavCallbacks callbacks)? onNavReady;
+
+  /// Вызывается при любом нажатии клавиши (для сброса таймера автоскрытия и показа контролов).
+  final VoidCallback? onControlsInteraction;
+
+  /// Вызывается при нажатии Info/Menu для переключения видимости контролов.
+  final VoidCallback? onToggleVisibilityRequested;
+
+  /// При скрытых контролах: влево/вправо вызывают перемотку.
+  final VoidCallback? onSeekBackward;
+  final VoidCallback? onSeekForward;
 
   const VideoControlsBuilder({
     super.key,
@@ -74,7 +88,12 @@ class VideoControlsBuilder extends StatefulWidget {
     this.mainAxisAlignment = MainAxisAlignment.end,
     this.crossAxisAlignment = CrossAxisAlignment.stretch,
     this.spacing = 20,
+    this.controlsVisible = true,
     this.onNavReady,
+    this.onControlsInteraction,
+    this.onToggleVisibilityRequested,
+    this.onSeekBackward,
+    this.onSeekForward,
   });
 
   @override
@@ -85,6 +104,9 @@ class _VideoControlsBuilderState extends State<VideoControlsBuilder> {
   late final NavigationManager _navigationManager;
   late final FocusNode _rootFocusNode;
   String? _pendingFocusRestoreId;
+
+  /// Id элемента с фокусом перед скрытием контролов (для восстановления при показе).
+  String? _focusedIdBeforeHide;
 
   @override
   void initState() {
@@ -115,14 +137,34 @@ class _VideoControlsBuilderState extends State<VideoControlsBuilder> {
           _pendingFocusRestoreId ?? _navigationManager.getFocusedItemId();
       _pendingFocusRestoreId = null;
       _navigationManager.setRows(widget.rows);
-      // Не вызывать requestFocusOnId здесь: новые узлы ещё не в дереве (build не выполнен).
-      // Восстанавливаем фокус только после кадра, когда новое дерево уже построено.
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _navigationManager.requestFocusOnId(idToRestore);
         WidgetsBinding.instance.addPostFrameCallback((_) {
           _navigationManager.requestFocusOnId(idToRestore);
         });
       });
+    }
+    // При скрытии контролов снимаем фокус с элемента и переносим на корень.
+    // Делаем unfocus в первом кадре, requestFocus на корень — во втором, иначе фокус
+    // после unfocus карусели/слайдера может перейти к другому дочернему элементу.
+    if (widget.controlsVisible != oldWidget.controlsVisible) {
+      if (!widget.controlsVisible) {
+        _focusedIdBeforeHide = _navigationManager.getFocusedItemId();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          FocusManager.instance.primaryFocus?.unfocus();
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            _rootFocusNode.requestFocus();
+          });
+        });
+      } else {
+        final idToRestore = _focusedIdBeforeHide ?? widget.initialFocusId;
+        _focusedIdBeforeHide = null;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _navigationManager.requestFocusOnId(idToRestore);
+        });
+      }
     }
   }
 
@@ -144,7 +186,36 @@ class _VideoControlsBuilderState extends State<VideoControlsBuilder> {
       child: FocusScope(
         child: Focus(
           focusNode: _rootFocusNode,
-          onKeyEvent: _navigationManager.handleKey,
+          onKeyEvent: (FocusNode node, KeyEvent event) {
+            if (event is KeyDownEvent) {
+              final key = event.logicalKey;
+              if (key == LogicalKeyboardKey.info ||
+                  key == LogicalKeyboardKey.contextMenu) {
+                widget.onToggleVisibilityRequested?.call();
+                return KeyEventResult.handled;
+              }
+              // Когда контролы скрыты: влево/вправо — перемотка, вверх/вниз — показать контролы
+              if (!widget.controlsVisible) {
+                switch (key) {
+                  case LogicalKeyboardKey.arrowLeft:
+                    widget.onSeekBackward?.call();
+                    return KeyEventResult.handled;
+                  case LogicalKeyboardKey.arrowRight:
+                    widget.onSeekForward?.call();
+                    return KeyEventResult.handled;
+                  case LogicalKeyboardKey.arrowUp:
+                  case LogicalKeyboardKey.arrowDown:
+                    widget.onControlsInteraction?.call();
+                    return KeyEventResult.handled;
+                  default:
+                    break;
+                }
+              } else {
+                widget.onControlsInteraction?.call();
+              }
+            }
+            return _navigationManager.handleKey(node, event);
+          },
           child: Container(
             color: widget.backgroundColor ?? Colors.black.withAlpha(128),
             padding: widget.padding,
@@ -153,12 +224,28 @@ class _VideoControlsBuilderState extends State<VideoControlsBuilder> {
               crossAxisAlignment: widget.crossAxisAlignment,
               children: [
                 if (widget.rows.isNotEmpty) ...[
-                  widget.rows.first.build(context),
+                  AnimatedSlide(
+                    offset: Offset(0, widget.controlsVisible ? 0 : -1),
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeInOut,
+                    child: widget.rows.first.build(context),
+                  ),
                   const Spacer(),
-                  for (var i = 1; i < widget.rows.length; i++) ...[
-                    if (i > 1) SizedBox(height: widget.spacing.h),
-                    widget.rows[i].build(context),
-                  ],
+                  AnimatedSlide(
+                    offset: Offset(0, widget.controlsVisible ? 0 : 1),
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeInOut,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: widget.crossAxisAlignment,
+                      children: [
+                        for (var i = 1; i < widget.rows.length; i++) ...[
+                          if (i > 1) SizedBox(height: widget.spacing.h),
+                          widget.rows[i].build(context),
+                        ],
+                      ],
+                    ),
+                  ),
                 ],
               ],
             ),

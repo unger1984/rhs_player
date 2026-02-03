@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -26,6 +28,10 @@ class VideoControls extends StatefulWidget {
   final void Function(int index)? onRecommendedScrollIndexChanged;
   final void Function(RecommendedCarouselItem item)? onRecommendedItemActivated;
 
+  /// Время до автоскрытия контролов с момента последнего действия (клавиша/взаимодействие).
+  /// Если null или [Duration.zero], автоскрытие отключено.
+  final Duration? autoHideDelay;
+
   const VideoControls({
     super.key,
     required this.controller,
@@ -35,6 +41,7 @@ class VideoControls extends StatefulWidget {
     this.initialRecommendedIndex = 0,
     this.onRecommendedScrollIndexChanged,
     this.onRecommendedItemActivated,
+    this.autoHideDelay = const Duration(seconds: 5),
   });
 
   @override
@@ -44,6 +51,12 @@ class VideoControls extends StatefulWidget {
 class _VideoControlsState extends State<VideoControls> {
   /// Колбэки навигации из билдера (родительский context не видит VideoControlsNavigation).
   NavCallbacks? _nav;
+
+  /// Видимость контролов (верхняя/нижняя группа с анимацией).
+  bool _controlsVisible = true;
+
+  /// Таймер автоскрытия контролов.
+  Timer? _hideTimer;
 
   /// Показывать кнопку качества только после загрузки видеотреков.
   bool _hasVideoTracks = false;
@@ -70,13 +83,47 @@ class _VideoControlsState extends State<VideoControls> {
         setState(() => _hasAudioTracks = tracks.isNotEmpty);
       }
     });
+    _resetHideTimer();
   }
 
   @override
   void dispose() {
+    _hideTimer?.cancel();
     _removeVideoTracksListener?.call();
     _removeAudioTracksListener?.call();
     super.dispose();
+  }
+
+  void _showControls() {
+    _hideTimer?.cancel();
+    if (!_controlsVisible && mounted) {
+      setState(() => _controlsVisible = true);
+    }
+    _resetHideTimer();
+  }
+
+  void _hideControls() {
+    if (_controlsVisible && mounted) {
+      setState(() => _controlsVisible = false);
+    }
+  }
+
+  void _resetHideTimer() {
+    _hideTimer?.cancel();
+    final delay = widget.autoHideDelay;
+    if (delay != null && delay != Duration.zero) {
+      _hideTimer = Timer(delay, () {
+        if (mounted) _hideControls();
+      });
+    }
+  }
+
+  void _toggleControlsVisibility() {
+    if (_controlsVisible) {
+      _hideControls();
+    } else {
+      _showControls();
+    }
   }
 
   Widget _buildBufferingOverlay() {
@@ -107,7 +154,12 @@ class _VideoControlsState extends State<VideoControls> {
         _buildBufferingOverlay(),
         VideoControlsBuilder(
           initialFocusId: 'play_pause_button',
+          controlsVisible: _controlsVisible,
           onNavReady: (callbacks) => _nav = callbacks,
+          onControlsInteraction: _showControls,
+          onToggleVisibilityRequested: _toggleControlsVisibility,
+          onSeekBackward: _seekBackward,
+          onSeekForward: _seekForward,
           rows: [
             TopBarRow(
               id: 'top_bar_row',

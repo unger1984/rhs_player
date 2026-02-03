@@ -2,17 +2,25 @@ import 'package:flutter/material.dart';
 import 'package:rhs_player_example/controls/core/control_row.dart';
 import 'package:rhs_player_example/controls/navigation/navigation_manager.dart';
 
-/// Callback'и вертикальной навигации для элементов, перехватывающих фокус (напр. слайдер)
+/// Callback'и навигации для элементов управления (фокус, перехват стрелок)
 class VideoControlsNavigation extends InheritedWidget {
   const VideoControlsNavigation({
     super.key,
     required this.onNavigateUp,
     required this.onNavigateDown,
+    required this.requestInitialFocus,
+    required this.scheduleFocusRestore,
     required super.child,
   });
 
   final VoidCallback onNavigateUp;
   final VoidCallback onNavigateDown;
+
+  /// Перевести фокус на начальный элемент.
+  final VoidCallback requestInitialFocus;
+
+  /// Запланировать восстановление фокуса на элемент с [id] после следующего обновления рядов.
+  final void Function(String id) scheduleFocusRestore;
 
   static VideoControlsNavigation? maybeOf(BuildContext context) {
     return context
@@ -22,7 +30,9 @@ class VideoControlsNavigation extends InheritedWidget {
   @override
   bool updateShouldNotify(VideoControlsNavigation oldWidget) {
     return onNavigateUp != oldWidget.onNavigateUp ||
-        onNavigateDown != oldWidget.onNavigateDown;
+        onNavigateDown != oldWidget.onNavigateDown ||
+        requestInitialFocus != oldWidget.requestInitialFocus ||
+        scheduleFocusRestore != oldWidget.scheduleFocusRestore;
   }
 }
 
@@ -56,6 +66,7 @@ class VideoControlsBuilder extends StatefulWidget {
 class _VideoControlsBuilderState extends State<VideoControlsBuilder> {
   late final NavigationManager _navigationManager;
   late final FocusNode _rootFocusNode;
+  String? _pendingFocusRestoreId;
 
   @override
   void initState() {
@@ -73,6 +84,21 @@ class _VideoControlsBuilderState extends State<VideoControlsBuilder> {
   }
 
   @override
+  void didUpdateWidget(covariant VideoControlsBuilder oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.rows != oldWidget.rows) {
+      final idToRestore =
+          _pendingFocusRestoreId ?? _navigationManager.getFocusedItemId();
+      _pendingFocusRestoreId = null;
+      _navigationManager.setRows(widget.rows);
+      _navigationManager.requestFocusOnId(idToRestore);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _navigationManager.requestFocusOnId(idToRestore);
+      });
+    }
+  }
+
+  @override
   void dispose() {
     _navigationManager.dispose();
     _rootFocusNode.dispose();
@@ -84,6 +110,8 @@ class _VideoControlsBuilderState extends State<VideoControlsBuilder> {
     return VideoControlsNavigation(
       onNavigateUp: () => _navigationManager.navigateUp(null),
       onNavigateDown: () => _navigationManager.navigateDown(null),
+      requestInitialFocus: () => _navigationManager.requestInitialFocus(),
+      scheduleFocusRestore: (id) => setState(() => _pendingFocusRestoreId = id),
       child: FocusScope(
         child: Focus(
           focusNode: _rootFocusNode,

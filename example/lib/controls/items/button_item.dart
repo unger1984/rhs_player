@@ -9,6 +9,9 @@ class ButtonItem extends BaseFocusableItem {
   final double? buttonSize;
   final double? buttonBorderRadius;
 
+  /// При удержании вызывать onPressed повторно до отпускания (для перемотки).
+  final bool repeatWhileHeld;
+
   ButtonItem({
     required super.id,
     required this.child,
@@ -16,6 +19,7 @@ class ButtonItem extends BaseFocusableItem {
     super.focusNode,
     this.buttonSize,
     this.buttonBorderRadius,
+    this.repeatWhileHeld = false,
   });
 
   @override
@@ -23,6 +27,7 @@ class ButtonItem extends BaseFocusableItem {
     return ControlButton(
       focusNode: focusNode,
       onPressed: onPressed,
+      repeatWhileHeld: repeatWhileHeld,
       size: buttonSize,
       borderRadius: buttonBorderRadius,
       child: child,

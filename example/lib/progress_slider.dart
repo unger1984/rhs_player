@@ -1,8 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:rhs_player/rhs_player.dart';
 import 'package:rxdart/rxdart.dart';
+
+/// Интервал повтора перемотки при удержании стрелки (как у кнопок перемотки).
+const Duration _kSeekRepeatInterval = Duration(milliseconds: 300);
 
 /// Цвета слайдера прогресса
 const Color _activeColor = Color(0xFFF45E3F);
@@ -191,8 +196,8 @@ class _ProgressThumbShape extends SliderComponentShape {
 
 /// Слайдер прогресса воспроизведения с поддержкой перемотки клавишами.
 /// Трек: 12.h без фокуса, 16.h с фокусом. Ползунок: 16.r с бордером без фокуса, 40.r заливка с фокусом.
-/// Влево/вправо — перемотка, вверх/вниз — переход фокуса на другой ряд (если заданы callback).
-class ProgressSlider extends StatelessWidget {
+/// Влево/вправо — перемотка (при удержании — непрерывная), вверх/вниз — переход фокуса на другой ряд.
+class ProgressSlider extends StatefulWidget {
   final RhsPlayerController controller;
   final FocusNode focusNode;
   final VoidCallback onSeekBackward;
@@ -211,6 +216,48 @@ class ProgressSlider extends StatelessWidget {
   });
 
   @override
+  State<ProgressSlider> createState() => _ProgressSliderState();
+}
+
+class _ProgressSliderState extends State<ProgressSlider> {
+  Timer? _repeatTimer;
+
+  void _startRepeatBackward() {
+    _repeatTimer?.cancel();
+    widget.onSeekBackward();
+    _repeatTimer = Timer.periodic(_kSeekRepeatInterval, (_) {
+      if (!mounted) {
+        _repeatTimer?.cancel();
+        return;
+      }
+      widget.onSeekBackward();
+    });
+  }
+
+  void _startRepeatForward() {
+    _repeatTimer?.cancel();
+    widget.onSeekForward();
+    _repeatTimer = Timer.periodic(_kSeekRepeatInterval, (_) {
+      if (!mounted) {
+        _repeatTimer?.cancel();
+        return;
+      }
+      widget.onSeekForward();
+    });
+  }
+
+  void _stopRepeat() {
+    _repeatTimer?.cancel();
+    _repeatTimer = null;
+  }
+
+  @override
+  void dispose() {
+    _stopRepeat();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final progressStream =
         Rx.combineLatest2<
@@ -218,8 +265,8 @@ class ProgressSlider extends StatelessWidget {
           Duration,
           ({RhsPositionData position, Duration buffered})
         >(
-          controller.positionDataStream,
-          controller.bufferedPositionStream,
+          widget.controller.positionDataStream,
+          widget.controller.bufferedPositionStream,
           (p, b) => (position: p, buffered: b),
         );
     return StreamBuilder<({RhsPositionData position, Duration buffered})>(
@@ -239,33 +286,45 @@ class ProgressSlider extends StatelessWidget {
             : 0.0;
 
         return Focus(
-          focusNode: focusNode,
+          focusNode: widget.focusNode,
           onKeyEvent: (node, event) {
-            if (event is! KeyDownEvent) return KeyEventResult.ignored;
-            switch (event.logicalKey) {
-              case LogicalKeyboardKey.arrowLeft:
-                onSeekBackward();
-                return KeyEventResult.handled;
-              case LogicalKeyboardKey.arrowRight:
-                onSeekForward();
-                return KeyEventResult.handled;
-              case LogicalKeyboardKey.arrowUp:
-                final up = onNavigateUp;
-                if (up != null) {
-                  up();
+            if (event is KeyDownEvent) {
+              switch (event.logicalKey) {
+                case LogicalKeyboardKey.arrowLeft:
+                  _startRepeatBackward();
                   return KeyEventResult.handled;
-                }
-                return KeyEventResult.ignored;
-              case LogicalKeyboardKey.arrowDown:
-                final down = onNavigateDown;
-                if (down != null) {
-                  down();
+                case LogicalKeyboardKey.arrowRight:
+                  _startRepeatForward();
                   return KeyEventResult.handled;
-                }
-                return KeyEventResult.ignored;
-              default:
-                return KeyEventResult.ignored;
+                case LogicalKeyboardKey.arrowUp:
+                  final up = widget.onNavigateUp;
+                  if (up != null) {
+                    up();
+                    return KeyEventResult.handled;
+                  }
+                  return KeyEventResult.ignored;
+                case LogicalKeyboardKey.arrowDown:
+                  final down = widget.onNavigateDown;
+                  if (down != null) {
+                    down();
+                    return KeyEventResult.handled;
+                  }
+                  return KeyEventResult.ignored;
+                default:
+                  return KeyEventResult.ignored;
+              }
             }
+            if (event is KeyUpEvent) {
+              switch (event.logicalKey) {
+                case LogicalKeyboardKey.arrowLeft:
+                case LogicalKeyboardKey.arrowRight:
+                  _stopRepeat();
+                  return KeyEventResult.handled;
+                default:
+                  return KeyEventResult.ignored;
+              }
+            }
+            return KeyEventResult.ignored;
           },
           child: Builder(
             builder: (context) {
@@ -317,7 +376,7 @@ class ProgressSlider extends StatelessWidget {
                         min: 0.0,
                         max: duration.inMilliseconds.toDouble(),
                         onChanged: (value) {
-                          controller.seekTo(
+                          widget.controller.seekTo(
                             Duration(milliseconds: value.toInt()),
                           );
                         },

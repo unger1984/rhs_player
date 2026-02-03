@@ -1,5 +1,3 @@
-import 'dart:developer' as dev;
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:rhs_player_example/controls/core/control_row.dart';
@@ -8,21 +6,38 @@ import 'package:rhs_player_example/controls/core/key_handling_result.dart';
 
 /// Менеджер навигации между элементами управления
 class NavigationManager {
-  final List<ControlRow> rows;
+  final List<ControlRow> _rows = [];
+  List<ControlRow> get rows => _rows;
   final FocusNode? initialFocusNode;
   final String? initialFocusId;
 
   NavigationManager({
-    required this.rows,
+    required List<ControlRow> rows,
     this.initialFocusNode,
     this.initialFocusId,
   }) {
+    _rows.addAll(rows);
     _sortRows();
+  }
+
+  /// Обновить список рядов (после перестроения виджетов с новыми FocusNode).
+  /// Старые ряды уничтожаются в следующем кадре, чтобы не сбрасывать фокус с узла,
+  /// который ещё может быть в фокусе (иначе фокус перескакивает на кнопку в том же слоте).
+  void setRows(List<ControlRow> newRows) {
+    final oldRows = _rows.toList();
+    _rows.clear();
+    _rows.addAll(newRows);
+    _sortRows();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      for (final row in oldRows) {
+        row.dispose();
+      }
+    });
   }
 
   /// Сортировка рядов по индексу
   void _sortRows() {
-    rows.sort((a, b) => a.index.compareTo(b.index));
+    _rows.sort((a, b) => a.index.compareTo(b.index));
   }
 
   /// Обработка клавиши с Chain of Responsibility
@@ -35,13 +50,9 @@ class NavigationManager {
       return KeyEventResult.handled;
     }
 
-    // Находим текущий элемент; если фокус ушёл за пределы контролов — возвращаем его
+    // Находим текущий элемент; если фокус вне контролов — возвращаем в известный элемент
     final currentItem = _findItemByFocusNode(currentFocus);
     if (currentItem == null) {
-      dev.log(
-        'Текущий элемент не найден, возврат фокуса в контролы',
-        name: 'NavigationManager',
-      );
       _requestInitialFocus(deferred: true);
       return KeyEventResult.handled;
     }
@@ -97,7 +108,7 @@ class NavigationManager {
     final targetRowIndex = position.rowIndex - 1;
     if (targetRowIndex < 0) return KeyEventResult.handled;
 
-    final targetRow = rows[targetRowIndex];
+    final targetRow = _rows[targetRowIndex];
     final targetItemIndex = position.itemIndex.clamp(
       0,
       targetRow.items.length - 1,
@@ -124,9 +135,9 @@ class NavigationManager {
     }
 
     final targetRowIndex = position.rowIndex + 1;
-    if (targetRowIndex >= rows.length) return KeyEventResult.handled;
+    if (targetRowIndex >= _rows.length) return KeyEventResult.handled;
 
-    final targetRow = rows[targetRowIndex];
+    final targetRow = _rows[targetRowIndex];
     final targetItemIndex = position.itemIndex.clamp(
       0,
       targetRow.items.length - 1,
@@ -145,7 +156,7 @@ class NavigationManager {
       return KeyEventResult.handled;
     }
 
-    final currentRow = rows[position.rowIndex];
+    final currentRow = _rows[position.rowIndex];
     final targetItemIndex = position.itemIndex - 1;
 
     if (targetItemIndex < 0) return KeyEventResult.handled;
@@ -163,7 +174,7 @@ class NavigationManager {
       return KeyEventResult.handled;
     }
 
-    final currentRow = rows[position.rowIndex];
+    final currentRow = _rows[position.rowIndex];
     final targetItemIndex = position.itemIndex + 1;
 
     if (targetItemIndex >= currentRow.items.length) {
@@ -177,8 +188,8 @@ class NavigationManager {
 
   /// Найти позицию элемента (ряд и индекс в ряду)
   _ItemPosition? _findPosition(FocusNode focusNode) {
-    for (var rowIndex = 0; rowIndex < rows.length; rowIndex++) {
-      final row = rows[rowIndex];
+    for (var rowIndex = 0; rowIndex < _rows.length; rowIndex++) {
+      final row = _rows[rowIndex];
       final itemIndex = row.findItemIndex(focusNode);
       if (itemIndex != null) {
         return _ItemPosition(rowIndex: rowIndex, itemIndex: itemIndex);
@@ -189,7 +200,7 @@ class NavigationManager {
 
   /// Найти элемент по FocusNode
   FocusableItem? _findItemByFocusNode(FocusNode focusNode) {
-    for (final row in rows) {
+    for (final row in _rows) {
       for (final item in row.items) {
         if (item.focusNode == focusNode) return item;
       }
@@ -199,12 +210,32 @@ class NavigationManager {
 
   /// Найти элемент по id
   FocusableItem? _findItemById(String id) {
-    for (final row in rows) {
+    for (final row in _rows) {
       for (final item in row.items) {
         if (item.id == id) return item;
       }
     }
     return null;
+  }
+
+  /// Id элемента, на котором сейчас фокус (по primaryFocus в текущих рядах).
+  String? getFocusedItemId() {
+    final primary = FocusManager.instance.primaryFocus;
+    if (primary == null) return null;
+    final item = _findItemByFocusNode(primary);
+    return item?.id;
+  }
+
+  /// Перевести фокус на элемент с [preferredId]; если не найден — на начальный.
+  void requestFocusOnId(String? preferredId) {
+    if (preferredId != null) {
+      final item = _findItemById(preferredId);
+      if (item != null) {
+        item.focusNode.requestFocus();
+        return;
+      }
+    }
+    _requestInitialFocus();
   }
 
   /// Запросить начальный фокус.
@@ -223,8 +254,8 @@ class NavigationManager {
         byId.focusNode.requestFocus();
         return;
       }
-      if (rows.isNotEmpty && rows.first.items.isNotEmpty) {
-        rows.first.items.first.focusNode.requestFocus();
+      if (_rows.isNotEmpty && _rows.first.items.isNotEmpty) {
+        _rows.first.items.first.focusNode.requestFocus();
       }
     }
 
@@ -251,7 +282,7 @@ class NavigationManager {
 
   /// Очистка ресурсов
   void dispose() {
-    for (final row in rows) {
+    for (final row in _rows) {
       row.dispose();
     }
   }

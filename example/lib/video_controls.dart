@@ -9,7 +9,7 @@ import 'package:rhs_player_example/controls/items/button_item.dart';
 import 'package:rhs_player_example/controls/items/custom_widget_item.dart';
 import 'package:rhs_player_example/controls/items/progress_slider_item.dart';
 import 'package:rhs_player_example/controls/rows/full_width_row.dart';
-import 'package:rhs_player_example/controls/rows/horizontal_button_row.dart';
+import 'package:rhs_player_example/controls/rows/three_zone_button_row.dart';
 import 'package:rhs_player_example/controls/rows/top_bar_row.dart';
 
 /// Виджет управления видео с поддержкой Android TV пульта
@@ -17,11 +17,13 @@ import 'package:rhs_player_example/controls/rows/top_bar_row.dart';
 class VideoControls extends StatelessWidget {
   final RhsPlayerController controller;
   final VoidCallback onSwitchSource;
+  final VoidCallback? onFavoritePressed;
 
   const VideoControls({
     super.key,
     required this.controller,
     required this.onSwitchSource,
+    this.onFavoritePressed,
   });
 
   @override
@@ -32,9 +34,9 @@ class VideoControls extends StatelessWidget {
         TopBarRow(
           id: 'top_bar_row',
           index: 0,
-          height: 124.h,
+          height: 124,
           backgroundColor: const Color(0xCC201B2E),
-          leftPadding: 120.w,
+          leftPadding: 120,
           title: 'Тут будет название фильма',
           items: [
             ButtonItem(
@@ -44,7 +46,7 @@ class VideoControls extends StatelessWidget {
               buttonBorderRadius: 16,
               child: Center(
                 child: Padding(
-                  padding: EdgeInsets.only(left: 4.w),
+                  padding: EdgeInsets.only(left: 5.w),
                   child: Icon(Icons.arrow_back_ios, color: Colors.white),
                 ),
               ),
@@ -63,14 +65,28 @@ class VideoControls extends StatelessWidget {
             ),
           ],
         ),
-        HorizontalButtonRow(
+        ThreeZoneButtonRow(
           id: 'control_buttons_row',
           index: 2,
           spacing: 32.w,
-          items: [
+          leftItems: [
+            ButtonItem(
+              id: 'favorite_button',
+              onPressed: onFavoritePressed ?? () {},
+              child: Center(
+                child: SizedBox(
+                  width: 56.w,
+                  height: 56.h,
+                  child: ImageIcon(AssetImage('assets/controls/like.png')),
+                ),
+              ),
+            ),
+          ],
+          centerItems: [
             ButtonItem(
               id: 'rewind_button',
               onPressed: _seekBackward,
+              repeatWhileHeld: true,
               child: Center(
                 child: SizedBox(
                   width: 56.w,
@@ -105,6 +121,7 @@ class VideoControls extends StatelessWidget {
             ButtonItem(
               id: 'forward_button',
               onPressed: _seekForward,
+              repeatWhileHeld: true,
               child: Center(
                 child: SizedBox(
                   width: 56.w,
@@ -113,9 +130,16 @@ class VideoControls extends StatelessWidget {
                 ),
               ),
             ),
+          ],
+          rightItems: [
             ButtonItem(
               id: 'switch_source_button',
-              onPressed: onSwitchSource,
+              onPressed: () {
+                VideoControlsNavigation.maybeOf(
+                  context,
+                )?.scheduleFocusRestore('switch_source_button');
+                onSwitchSource();
+              },
               child: const Icon(
                 Icons.swap_horiz,
                 color: Colors.white,

@@ -43,145 +43,182 @@ class _VideoControlsState extends State<VideoControls> {
   /// Колбэки навигации из билдера (родительский context не видит VideoControlsNavigation).
   NavCallbacks? _nav;
 
+  Widget _buildBufferingOverlay() {
+    return StreamBuilder<RhsPlayerStatus>(
+      stream: widget.controller.playerStatusStream,
+      builder: (context, snapshot) {
+        if (snapshot.data is RhsPlayerStatusLoading) {
+          return Center(
+            child: SizedBox(
+              width: 80.r,
+              height: 80.r,
+              child: const CircularProgressIndicator(
+                color: Colors.white,
+                strokeWidth: 3,
+              ),
+            ),
+          );
+        }
+        return const SizedBox.shrink();
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return VideoControlsBuilder(
-      initialFocusId: 'play_pause_button',
-      onNavReady: (callbacks) => _nav = callbacks,
-      rows: [
-        TopBarRow(
-          id: 'top_bar_row',
-          index: 0,
-          height: 124,
-          backgroundColor: const Color(0xCC201B2E),
-          horizontalPadding: 120,
-          title: 'Тут будет название фильма',
-          items: [
-            ButtonItem(
-              id: 'back_button',
-              onPressed: () => Navigator.of(context).pop(),
-              buttonSize: 76,
-              buttonBorderRadius: 16,
-              child: Center(
-                child: Padding(
-                  padding: EdgeInsets.only(left: 5.w),
-                  child: Icon(Icons.arrow_back_ios, color: Colors.white),
+    return Stack(
+      children: [
+        _buildBufferingOverlay(),
+        VideoControlsBuilder(
+          initialFocusId: 'play_pause_button',
+          onNavReady: (callbacks) => _nav = callbacks,
+          rows: [
+            TopBarRow(
+              id: 'top_bar_row',
+              index: 0,
+              height: 124,
+              backgroundColor: const Color(0xCC201B2E),
+              horizontalPadding: 120,
+              title: 'Тут будет название фильма',
+              items: [
+                ButtonItem(
+                  id: 'back_button',
+                  onPressed: () => Navigator.of(context).pop(),
+                  buttonSize: 76,
+                  buttonBorderRadius: 16,
+                  child: Center(
+                    child: Padding(
+                      padding: EdgeInsets.only(left: 5.w),
+                      child: Icon(Icons.arrow_back_ios, color: Colors.white),
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
-          ],
-        ),
-        FullWidthRow(
-          id: 'progress_row',
-          index: 1,
-          padding: EdgeInsets.symmetric(horizontal: 120.w),
-          items: [
-            ProgressSliderItem(
-              id: 'progress_slider',
-              controller: widget.controller,
-              onSeekBackward: _seekBackward,
-              onSeekForward: _seekForward,
-            ),
-          ],
-        ),
-        ThreeZoneButtonRow(
-          id: 'control_buttons_row',
-          index: 2,
-          spacing: 32,
-          leftItems: [
-            ButtonItem(
-              id: 'favorite_button',
-              onPressed: widget.onFavoritePressed ?? () {},
-              child: Center(
-                child: SizedBox(
-                  width: 56.w,
-                  height: 56.h,
-                  child: ImageIcon(AssetImage('assets/controls/like.png')),
+            FullWidthRow(
+              id: 'progress_row',
+              index: 1,
+              padding: EdgeInsets.symmetric(horizontal: 120.w),
+              items: [
+                ProgressSliderItem(
+                  id: 'progress_slider',
+                  controller: widget.controller,
+                  onSeekBackward: _seekBackward,
+                  onSeekForward: _seekForward,
                 ),
-              ),
+              ],
             ),
-          ],
-          centerItems: [
-            ButtonItem(
-              id: 'rewind_button',
-              onPressed: _seekBackward,
-              repeatWhileHeld: true,
-              child: Center(
-                child: SizedBox(
-                  width: 56.w,
-                  height: 56.h,
-                  child: ImageIcon(AssetImage('assets/controls/rewind_L.png')),
+            ThreeZoneButtonRow(
+              id: 'control_buttons_row',
+              index: 2,
+              spacing: 32,
+              leftItems: [
+                ButtonItem(
+                  id: 'favorite_button',
+                  onPressed: widget.onFavoritePressed ?? () {},
+                  child: Center(
+                    child: SizedBox(
+                      width: 56.w,
+                      height: 56.h,
+                      child: ImageIcon(AssetImage('assets/controls/like.png')),
+                    ),
+                  ),
                 ),
-              ),
-            ),
-            CustomWidgetItem(
-              id: 'play_pause_button',
-              keyHandler: (event) {
-                if (event is KeyDownEvent &&
-                    (event.logicalKey == LogicalKeyboardKey.select ||
-                        event.logicalKey == LogicalKeyboardKey.enter)) {
-                  _togglePlayPause();
-                  return KeyHandlingResult.handled;
-                }
-                return KeyHandlingResult.notHandled;
-              },
-              builder: (focusNode) => StreamBuilder<RhsPlayerStatus>(
-                stream: widget.controller.playerStatusStream,
-                builder: (context, snapshot) {
-                  final isPlaying = snapshot.data is RhsPlayerStatusPlaying;
-                  return PlayPauseControlButton(
-                    focusNode: focusNode,
-                    isPlaying: isPlaying,
-                    onPressed: _togglePlayPause,
-                  );
-                },
-              ),
-            ),
-            ButtonItem(
-              id: 'forward_button',
-              onPressed: _seekForward,
-              repeatWhileHeld: true,
-              child: Center(
-                child: SizedBox(
-                  width: 56.w,
-                  height: 56.h,
-                  child: ImageIcon(AssetImage('assets/controls/rewind_R.png')),
+              ],
+              centerItems: [
+                ButtonItem(
+                  id: 'rewind_button',
+                  onPressed: _seekBackward,
+                  repeatWhileHeld: true,
+                  child: Center(
+                    child: SizedBox(
+                      width: 56.w,
+                      height: 56.h,
+                      child: ImageIcon(
+                        AssetImage('assets/controls/rewind_L.png'),
+                      ),
+                    ),
+                  ),
                 ),
-              ),
+                CustomWidgetItem(
+                  id: 'play_pause_button',
+                  keyHandler: (event) {
+                    if (event is KeyDownEvent &&
+                        (event.logicalKey == LogicalKeyboardKey.select ||
+                            event.logicalKey == LogicalKeyboardKey.enter)) {
+                      _togglePlayPause();
+                      return KeyHandlingResult.handled;
+                    }
+                    return KeyHandlingResult.notHandled;
+                  },
+                  builder: (focusNode) => StreamBuilder<RhsPlayerStatus>(
+                    stream: widget.controller.playerStatusStream,
+                    builder: (context, snapshot) {
+                      final status = snapshot.data;
+                      final isPlaying =
+                          status is RhsPlayerStatusPlaying ||
+                          status is RhsPlayerStatusLoading;
+                      return PlayPauseControlButton(
+                        focusNode: focusNode,
+                        isPlaying: isPlaying,
+                        onPressed: _togglePlayPause,
+                      );
+                    },
+                  ),
+                ),
+                ButtonItem(
+                  id: 'forward_button',
+                  onPressed: _seekForward,
+                  repeatWhileHeld: true,
+                  child: Center(
+                    child: SizedBox(
+                      width: 56.w,
+                      height: 56.h,
+                      child: ImageIcon(
+                        AssetImage('assets/controls/rewind_R.png'),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+              rightItems: [
+                ButtonItem(
+                  id: 'switch_source_button',
+                  onPressed: () {
+                    _nav?.scheduleFocusRestore('switch_source_button');
+                    widget.onSwitchSource();
+                  },
+                  child: Icon(
+                    Icons.swap_horiz,
+                    color: Colors.white,
+                    size: 32.r,
+                  ),
+                ),
+              ],
             ),
-          ],
-          rightItems: [
-            ButtonItem(
-              id: 'switch_source_button',
-              onPressed: () {
-                _nav?.scheduleFocusRestore('switch_source_button');
-                widget.onSwitchSource();
-              },
-              child: Icon(Icons.swap_horiz, color: Colors.white, size: 32.r),
-            ),
-          ],
-        ),
-        RecommendedCarouselRow(
-          id: 'recommended_row',
-          index: 3,
-          carouselItems: widget.recommendedItems,
-          initialScrollIndex: widget.initialRecommendedIndex,
-          onItemSelected: widget.onRecommendedScrollIndexChanged,
-          onItemActivated: widget.onRecommendedItemActivated == null
-              ? null
-              : (item) {
-                  final requestFocus = _nav?.requestFocusOnId;
-                  final scheduleRestore = _nav?.scheduleFocusRestore;
-                  scheduleRestore?.call('play_pause_button');
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    requestFocus?.call('play_pause_button');
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
+            RecommendedCarouselRow(
+              id: 'recommended_row',
+              index: 3,
+              carouselItems: widget.recommendedItems,
+              initialScrollIndex: widget.initialRecommendedIndex,
+              onItemSelected: widget.onRecommendedScrollIndexChanged,
+              onItemActivated: widget.onRecommendedItemActivated == null
+                  ? null
+                  : (item) {
+                      final requestFocus = _nav?.requestFocusOnId;
+                      final scheduleRestore = _nav?.scheduleFocusRestore;
+                      scheduleRestore?.call('play_pause_button');
                       WidgetsBinding.instance.addPostFrameCallback((_) {
-                        widget.onRecommendedItemActivated!(item);
+                        requestFocus?.call('play_pause_button');
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            widget.onRecommendedItemActivated!(item);
+                          });
+                        });
                       });
-                    });
-                  });
-                },
+                    },
+            ),
+          ],
         ),
       ],
     );
@@ -203,7 +240,8 @@ class _VideoControlsState extends State<VideoControls> {
   }
 
   void _togglePlayPause() {
-    if (widget.controller.currentPlayerStatus is RhsPlayerStatusPlaying) {
+    final status = widget.controller.currentPlayerStatus;
+    if (status is RhsPlayerStatusPlaying || status is RhsPlayerStatusLoading) {
       widget.controller.pause();
     } else {
       widget.controller.play();

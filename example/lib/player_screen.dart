@@ -1,6 +1,11 @@
-import 'package:flutter/material.dart';
-import 'package:rhs_player/rhs_player.dart';
+import 'dart:convert';
+import 'dart:developer' as developer;
 
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:rhs_player/rhs_player.dart';
+import 'package:rhs_player_example/controls/rows/recommended_carousel_row.dart';
 import 'package:rhs_player_example/video_controls.dart';
 
 class PlayerScreen extends StatelessWidget {
@@ -20,62 +25,115 @@ class _PlayerScreenContent extends StatefulWidget {
 }
 
 class _PlayerScreenContentState extends State<_PlayerScreenContent> {
-  int _recommendedCarouselIndex = 0;
-
-  final media0 = RhsMediaSource(
-    "https://user67561.nowcdn.co/done/widevine_playready/06bff34bc0fed90c578b72d72905680ae9b29e29/index.mpd",
-    drm: const RhsDrmConfig(
-      type: RhsDrmType.widevine,
-      licenseUrl: 'https://drm93075.nowdrm.co/widevine',
-    ),
-  );
-  final media1 = RhsMediaSource(
-    "https://user67561.nowcdn.co/done/widevine_playready/7c6be93192a4888f3491f46fee3dbcb57c77bd08/index.mpd",
-    drm: const RhsDrmConfig(
-      type: RhsDrmType.widevine,
-      licenseUrl: 'https://drm93075.nowdrm.co/widevine',
-    ),
-  );
-  final media2 = RhsMediaSource(
-    "https://user67561.nowcdn.co/done/widevine_playready/34b23ff04263fd82a6e8f2a096b2771ba5bd4de9/index.mpd",
-    drm: const RhsDrmConfig(
-      type: RhsDrmType.widevine,
-      licenseUrl: 'https://drm93075.nowdrm.co/widevine',
-    ),
-  );
-  int _vid = 0;
+  List<RecommendedCarouselItem> _carouselItems = [];
+  String? _currentPlayingUrl;
   late RhsPlayerController controller;
+
+  static Widget _placeholderImage() => Container(
+    color: const Color(0xFF2A303C),
+    child: Center(
+      child: Icon(Icons.movie, color: Colors.white54, size: 48.r),
+    ),
+  );
+
+  /// Имитация API: перечитываем список из JSON.
+  static Future<List<RecommendedCarouselItem>> _loadFilmsFromJson() async {
+    final json = await rootBundle.loadString('films.json');
+    final list = jsonDecode(json) as List<dynamic>;
+    final items = <RecommendedCarouselItem>[];
+    for (final e in list) {
+      final map = e as Map<String, dynamic>;
+      final link = map['link'] as String? ?? '';
+      final drmUrl = map['drm'] as String?;
+      final title = map['title'] as String? ?? '';
+      final source = RhsMediaSource(
+        link,
+        drm: drmUrl != null && drmUrl.isNotEmpty
+            ? RhsDrmConfig(type: RhsDrmType.widevine, licenseUrl: drmUrl)
+            : const RhsDrmConfig(type: RhsDrmType.none),
+      );
+      items.add(
+        RecommendedCarouselItem(
+          title: title,
+          image: _placeholderImage(),
+          mediaSource: source,
+        ),
+      );
+    }
+    return items;
+  }
+
+  static List<RecommendedCarouselItem> _filterExcludingPlaying(
+    List<RecommendedCarouselItem> items,
+    String? currentPlayingUrl,
+  ) {
+    if (currentPlayingUrl == null) return items;
+    return items.where((e) => e.mediaSource?.url != currentPlayingUrl).toList();
+  }
 
   @override
   void initState() {
     super.initState();
-    controller = RhsPlayerController.single(media0);
+    _loadFilms();
+    final placeholderSource = RhsMediaSource(
+      'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+    );
+    controller = RhsPlayerController.single(placeholderSource);
 
     controller.addStatusListener((status) {
       if (status is RhsPlayerStatusError) {
-        print('EVENT PLAYER ERROR: ${status.message}');
+        developer.log('EVENT PLAYER ERROR: ${status.message}');
       } else {
-        print('EVENT PLAYER STATUS: $status');
+        developer.log('EVENT PLAYER STATUS: $status');
       }
     });
 
     controller.addPositionDataListener((data) {
-      print('EVENT POSITION DATA: ${data.position} / ${data.duration}');
+      developer.log('EVENT POSITION DATA: ${data.position} / ${data.duration}');
     });
 
     controller.addBufferedPositionListener((position) {
-      print('EVENT BUFFERED: $position');
+      developer.log('EVENT BUFFERED: $position');
     });
 
     controller.addVideoTracksListener((tracks) {
       final trackLabels = tracks.map((t) => t.displayLabel).join(', ');
-      print('EVENT VIDEO TRACKS: [$trackLabels]');
+      developer.log('EVENT VIDEO TRACKS: [$trackLabels]');
     });
 
     controller.addAudioTracksListener((tracks) {
       final trackLabels = tracks.map((t) => t.label).join(', ');
-      print('EVENT AUDIO TRACKS: [$trackLabels]');
+      developer.log('EVENT AUDIO TRACKS: [$trackLabels]');
     });
+  }
+
+  Future<void> _loadFilms() async {
+    try {
+      final items = await _loadFilmsFromJson();
+      if (items.isEmpty || !mounted) return;
+      final firstSource = items.first.mediaSource!;
+      setState(() {
+        _currentPlayingUrl = firstSource.url;
+        _carouselItems = _filterExcludingPlaying(items, firstSource.url);
+      });
+      controller.loadMediaSource(firstSource);
+    } catch (e, st) {
+      debugPrint('_loadFilms error: $e $st');
+    }
+  }
+
+  /// Обновить карусель: перечитать список из JSON (имитация API) и отфильтровать текущее.
+  Future<void> _refreshCarousel() async {
+    try {
+      final items = await _loadFilmsFromJson();
+      if (!mounted) return;
+      setState(
+        () =>
+            _carouselItems = _filterExcludingPlaying(items, _currentPlayingUrl),
+      );
+    } catch (e, st) {
+      debugPrint('_refreshCarousel error: $e $st');
+    }
   }
 
   @override
@@ -84,18 +142,12 @@ class _PlayerScreenContentState extends State<_PlayerScreenContent> {
     super.dispose();
   }
 
-  void _handleChange() {
-    if (_vid == 1) {
-      controller.loadMediaSource(media2);
-      setState(() {
-        _vid = 2;
-      });
-    } else {
-      controller.loadMediaSource(media1);
-      setState(() {
-        _vid = 1;
-      });
-    }
+  void _onRecommendedItemActivated(RecommendedCarouselItem item) {
+    final source = item.mediaSource;
+    if (source == null) return;
+    controller.loadMediaSource(source);
+    setState(() => _currentPlayingUrl = source.url);
+    _refreshCarousel();
   }
 
   @override
@@ -110,11 +162,10 @@ class _PlayerScreenContentState extends State<_PlayerScreenContent> {
             boxFit: BoxFit.contain,
             overlay: VideoControls(
               controller: controller,
-              onSwitchSource: _handleChange,
-              initialRecommendedIndex: _recommendedCarouselIndex,
-              onRecommendedScrollIndexChanged: (index) {
-                setState(() => _recommendedCarouselIndex = index);
-              },
+              onSwitchSource: () {},
+              recommendedItems: _carouselItems,
+              initialRecommendedIndex: 0,
+              onRecommendedItemActivated: _onRecommendedItemActivated,
             ),
           ),
         ),

@@ -15,26 +15,39 @@ import 'package:rhs_player_example/controls/rows/top_bar_row.dart';
 
 /// Виджет управления видео с поддержкой Android TV пульта
 /// Использует новую систему навигации с Chain of Responsibility паттерном
-class VideoControls extends StatelessWidget {
+class VideoControls extends StatefulWidget {
   final RhsPlayerController controller;
   final VoidCallback onSwitchSource;
   final VoidCallback? onFavoritePressed;
+  final List<RecommendedCarouselItem> recommendedItems;
   final int initialRecommendedIndex;
   final void Function(int index)? onRecommendedScrollIndexChanged;
+  final void Function(RecommendedCarouselItem item)? onRecommendedItemActivated;
 
   const VideoControls({
     super.key,
     required this.controller,
     required this.onSwitchSource,
+    required this.recommendedItems,
     this.onFavoritePressed,
     this.initialRecommendedIndex = 0,
     this.onRecommendedScrollIndexChanged,
+    this.onRecommendedItemActivated,
   });
+
+  @override
+  State<VideoControls> createState() => _VideoControlsState();
+}
+
+class _VideoControlsState extends State<VideoControls> {
+  /// Колбэки навигации из билдера (родительский context не видит VideoControlsNavigation).
+  NavCallbacks? _nav;
 
   @override
   Widget build(BuildContext context) {
     return VideoControlsBuilder(
       initialFocusId: 'play_pause_button',
+      onNavReady: (callbacks) => _nav = callbacks,
       rows: [
         TopBarRow(
           id: 'top_bar_row',
@@ -65,7 +78,7 @@ class VideoControls extends StatelessWidget {
           items: [
             ProgressSliderItem(
               id: 'progress_slider',
-              controller: controller,
+              controller: widget.controller,
               onSeekBackward: _seekBackward,
               onSeekForward: _seekForward,
             ),
@@ -78,7 +91,7 @@ class VideoControls extends StatelessWidget {
           leftItems: [
             ButtonItem(
               id: 'favorite_button',
-              onPressed: onFavoritePressed ?? () {},
+              onPressed: widget.onFavoritePressed ?? () {},
               child: Center(
                 child: SizedBox(
                   width: 56.w,
@@ -113,7 +126,7 @@ class VideoControls extends StatelessWidget {
                 return KeyHandlingResult.notHandled;
               },
               builder: (focusNode) => StreamBuilder<RhsPlayerStatus>(
-                stream: controller.playerStatusStream,
+                stream: widget.controller.playerStatusStream,
                 builder: (context, snapshot) {
                   final isPlaying = snapshot.data is RhsPlayerStatusPlaying;
                   return PlayPauseControlButton(
@@ -141,10 +154,8 @@ class VideoControls extends StatelessWidget {
             ButtonItem(
               id: 'switch_source_button',
               onPressed: () {
-                VideoControlsNavigation.maybeOf(
-                  context,
-                )?.scheduleFocusRestore('switch_source_button');
-                onSwitchSource();
+                _nav?.scheduleFocusRestore('switch_source_button');
+                widget.onSwitchSource();
               },
               child: Icon(Icons.swap_horiz, color: Colors.white, size: 32.r),
             ),
@@ -153,47 +164,49 @@ class VideoControls extends StatelessWidget {
         RecommendedCarouselRow(
           id: 'recommended_row',
           index: 3,
-          carouselItems: _recommendedItems,
-          initialScrollIndex: initialRecommendedIndex,
-          onItemSelected: onRecommendedScrollIndexChanged,
+          carouselItems: widget.recommendedItems,
+          initialScrollIndex: widget.initialRecommendedIndex,
+          onItemSelected: widget.onRecommendedScrollIndexChanged,
+          onItemActivated: widget.onRecommendedItemActivated == null
+              ? null
+              : (item) {
+                  final requestFocus = _nav?.requestFocusOnId;
+                  final scheduleRestore = _nav?.scheduleFocusRestore;
+                  scheduleRestore?.call('play_pause_button');
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    requestFocus?.call('play_pause_button');
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        widget.onRecommendedItemActivated!(item);
+                      });
+                    });
+                  });
+                },
         ),
       ],
     );
   }
 
-  static final List<RecommendedCarouselItem> _recommendedItems = List.generate(
-    8,
-    (i) => RecommendedCarouselItem(
-      title: 'Фильм ${i + 1}',
-      image: Container(
-        color: const Color(0xFF2A303C),
-        child: Center(
-          child: Icon(Icons.movie, color: Colors.white54, size: 48.r),
-        ),
-      ),
-    ),
-  );
-
   void _seekBackward() {
     final newPosition =
-        controller.currentPosition - const Duration(seconds: 10);
-    controller.seekTo(
+        widget.controller.currentPosition - const Duration(seconds: 10);
+    widget.controller.seekTo(
       newPosition > Duration.zero ? newPosition : Duration.zero,
     );
   }
 
   void _seekForward() {
     final newPosition =
-        controller.currentPosition + const Duration(seconds: 10);
-    final duration = controller.currentPositionData.duration;
-    controller.seekTo(newPosition < duration ? newPosition : duration);
+        widget.controller.currentPosition + const Duration(seconds: 10);
+    final duration = widget.controller.currentPositionData.duration;
+    widget.controller.seekTo(newPosition < duration ? newPosition : duration);
   }
 
   void _togglePlayPause() {
-    if (controller.currentPlayerStatus is RhsPlayerStatusPlaying) {
-      controller.pause();
+    if (widget.controller.currentPlayerStatus is RhsPlayerStatusPlaying) {
+      widget.controller.pause();
     } else {
-      controller.play();
+      widget.controller.play();
     }
   }
 }

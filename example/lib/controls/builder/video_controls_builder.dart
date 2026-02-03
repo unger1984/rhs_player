@@ -11,6 +11,7 @@ class VideoControlsNavigation extends InheritedWidget {
     required this.onNavigateDown,
     required this.requestInitialFocus,
     required this.scheduleFocusRestore,
+    required this.requestFocusOnId,
     required super.child,
   });
 
@@ -23,6 +24,9 @@ class VideoControlsNavigation extends InheritedWidget {
   /// Запланировать восстановление фокуса на элемент с [id] после следующего обновления рядов.
   final void Function(String id) scheduleFocusRestore;
 
+  /// Сразу перевести фокус на элемент с [id].
+  final void Function(String id) requestFocusOnId;
+
   static VideoControlsNavigation? maybeOf(BuildContext context) {
     return context
         .dependOnInheritedWidgetOfExactType<VideoControlsNavigation>();
@@ -33,9 +37,16 @@ class VideoControlsNavigation extends InheritedWidget {
     return onNavigateUp != oldWidget.onNavigateUp ||
         onNavigateDown != oldWidget.onNavigateDown ||
         requestInitialFocus != oldWidget.requestInitialFocus ||
-        scheduleFocusRestore != oldWidget.scheduleFocusRestore;
+        scheduleFocusRestore != oldWidget.scheduleFocusRestore ||
+        requestFocusOnId != oldWidget.requestFocusOnId;
   }
 }
+
+/// Колбэки навигации (фокус), передаются наружу через [onNavReady].
+typedef NavCallbacks = ({
+  void Function(String id) requestFocusOnId,
+  void Function(String id) scheduleFocusRestore,
+});
 
 /// Билдер для декларативного построения системы управления
 class VideoControlsBuilder extends StatefulWidget {
@@ -48,6 +59,10 @@ class VideoControlsBuilder extends StatefulWidget {
   final CrossAxisAlignment crossAxisAlignment;
   final double spacing;
 
+  /// Вызывается при инициализации билдера; передаёт наружу [requestFocusOnId] и [scheduleFocusRestore],
+  /// чтобы родитель мог переводить фокус (контекст родителя не видит VideoControlsNavigation).
+  final void Function(NavCallbacks callbacks)? onNavReady;
+
   const VideoControlsBuilder({
     super.key,
     required this.rows,
@@ -58,6 +73,7 @@ class VideoControlsBuilder extends StatefulWidget {
     this.mainAxisAlignment = MainAxisAlignment.end,
     this.crossAxisAlignment = CrossAxisAlignment.stretch,
     this.spacing = 20,
+    this.onNavReady,
   });
 
   @override
@@ -81,6 +97,11 @@ class _VideoControlsBuilderState extends State<VideoControlsBuilder> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _navigationManager.requestInitialFocus();
+      widget.onNavReady?.call((
+        requestFocusOnId: _navigationManager.requestFocusOnId,
+        scheduleFocusRestore: (id) =>
+            setState(() => _pendingFocusRestoreId = id),
+      ));
     });
   }
 
@@ -92,9 +113,13 @@ class _VideoControlsBuilderState extends State<VideoControlsBuilder> {
           _pendingFocusRestoreId ?? _navigationManager.getFocusedItemId();
       _pendingFocusRestoreId = null;
       _navigationManager.setRows(widget.rows);
-      _navigationManager.requestFocusOnId(idToRestore);
+      // Не вызывать requestFocusOnId здесь: новые узлы ещё не в дереве (build не выполнен).
+      // Восстанавливаем фокус только после кадра, когда новое дерево уже построено.
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _navigationManager.requestFocusOnId(idToRestore);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _navigationManager.requestFocusOnId(idToRestore);
+        });
       });
     }
   }
@@ -113,6 +138,7 @@ class _VideoControlsBuilderState extends State<VideoControlsBuilder> {
       onNavigateDown: () => _navigationManager.navigateDown(null),
       requestInitialFocus: () => _navigationManager.requestInitialFocus(),
       scheduleFocusRestore: (id) => setState(() => _pendingFocusRestoreId = id),
+      requestFocusOnId: (id) => _navigationManager.requestFocusOnId(id),
       child: FocusScope(
         child: Focus(
           focusNode: _rootFocusNode,

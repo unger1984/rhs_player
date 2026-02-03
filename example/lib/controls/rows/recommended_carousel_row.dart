@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:rhs_player/rhs_player.dart';
 import 'package:rhs_player_example/controls/core/control_row.dart';
 import 'package:rhs_player_example/controls/core/focusable_item.dart';
 import 'package:rhs_player_example/controls/core/key_handling_result.dart';
@@ -11,7 +12,14 @@ class RecommendedCarouselItem {
   final String title;
   final Widget image;
 
-  const RecommendedCarouselItem({required this.title, required this.image});
+  /// Источник для воспроизведения при нажатии OK на элементе.
+  final RhsMediaSource? mediaSource;
+
+  const RecommendedCarouselItem({
+    required this.title,
+    required this.image,
+    this.mediaSource,
+  });
 }
 
 /// Виджет карусели: фокус всегда на крайнем левом слайде.
@@ -21,12 +29,14 @@ class _RecommendedCarouselWidget extends StatefulWidget {
   final FocusNode focusNode;
   final List<RecommendedCarouselItem> items;
   final void Function(int index)? onItemSelected;
+  final void Function(RecommendedCarouselItem item)? onItemActivated;
   final int initialScrollIndex;
 
   const _RecommendedCarouselWidget({
     required this.focusNode,
     required this.items,
     this.onItemSelected,
+    this.onItemActivated,
     this.initialScrollIndex = 0,
   });
 
@@ -131,6 +141,14 @@ class _RecommendedCarouselWidgetState
           case LogicalKeyboardKey.arrowLeft:
             if (_scrollIndex > 0) {
               _scrollToIndex(_scrollIndex - 1);
+            }
+            return KeyEventResult.handled;
+          case LogicalKeyboardKey.select:
+          case LogicalKeyboardKey.enter:
+            if (_scrollIndex >= 0 &&
+                _scrollIndex < widget.items.length &&
+                widget.items[_scrollIndex].mediaSource != null) {
+              widget.onItemActivated?.call(widget.items[_scrollIndex]);
             }
             return KeyEventResult.handled;
           default:
@@ -345,6 +363,7 @@ class _AnimatedRecommendedRowContentState
 class RecommendedCarouselRow extends BaseControlRow {
   final List<RecommendedCarouselItem> carouselItems;
   final void Function(int index)? onItemSelected;
+  final void Function(RecommendedCarouselItem item)? onItemActivated;
   final int initialScrollIndex;
 
   RecommendedCarouselRow({
@@ -352,6 +371,7 @@ class RecommendedCarouselRow extends BaseControlRow {
     required super.index,
     required this.carouselItems,
     this.onItemSelected,
+    this.onItemActivated,
     this.initialScrollIndex = 0,
   }) : super(
          items: [
@@ -359,6 +379,7 @@ class RecommendedCarouselRow extends BaseControlRow {
              id,
              carouselItems,
              onItemSelected,
+             onItemActivated,
              initialScrollIndex,
            ),
          ],
@@ -368,6 +389,7 @@ class RecommendedCarouselRow extends BaseControlRow {
     String rowId,
     List<RecommendedCarouselItem> carouselItems,
     void Function(int index)? onItemSelected,
+    void Function(RecommendedCarouselItem item)? onItemActivated,
     int initialScrollIndex,
   ) {
     return CustomWidgetItem(
@@ -377,6 +399,8 @@ class RecommendedCarouselRow extends BaseControlRow {
           switch (event.logicalKey) {
             case LogicalKeyboardKey.arrowRight:
             case LogicalKeyboardKey.arrowLeft:
+            case LogicalKeyboardKey.select:
+            case LogicalKeyboardKey.enter:
               return KeyHandlingResult.handled;
             default:
               return KeyHandlingResult.notHandled;
@@ -390,6 +414,7 @@ class RecommendedCarouselRow extends BaseControlRow {
           focusNode: focusNode,
           items: carouselItems,
           onItemSelected: onItemSelected,
+          onItemActivated: onItemActivated,
           initialScrollIndex: initialScrollIndex,
         ),
       ),

@@ -380,35 +380,32 @@ class _ProgressSliderState extends State<ProgressSlider> {
                       ),
                     ),
                   ),
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16.w),
-                    child: SliderTheme(
-                      data: SliderTheme.of(context).copyWith(
-                        trackHeight: trackHeight,
-                        activeTrackColor: _activeColor,
-                        inactiveTrackColor: _inactiveColor,
-                        trackShape: _ProgressTrackShape(
-                          bufferedValue: bufferedValue,
-                          bufferedColor: _bufferedColor,
-                        ),
-                        thumbShape: thumbShape,
-                        overlayShape: RoundSliderOverlayShape(
-                          overlayRadius: thumbRadius,
-                        ),
+                  SliderTheme(
+                    data: SliderTheme.of(context).copyWith(
+                      trackHeight: trackHeight,
+                      activeTrackColor: _activeColor,
+                      inactiveTrackColor: _inactiveColor,
+                      trackShape: _ProgressTrackShape(
+                        bufferedValue: bufferedValue,
+                        bufferedColor: _bufferedColor,
                       ),
-                      child: Slider(
-                        value: position.inMilliseconds.toDouble().clamp(
-                          0.0,
-                          duration.inMilliseconds.toDouble(),
-                        ),
-                        min: 0.0,
-                        max: duration.inMilliseconds.toDouble(),
-                        onChanged: (value) {
-                          widget.controller.seekTo(
-                            Duration(milliseconds: value.toInt()),
-                          );
-                        },
+                      thumbShape: thumbShape,
+                      overlayShape: RoundSliderOverlayShape(
+                        overlayRadius: thumbRadius,
                       ),
+                    ),
+                    child: Slider(
+                      value: position.inMilliseconds.toDouble().clamp(
+                        0.0,
+                        duration.inMilliseconds.toDouble(),
+                      ),
+                      min: 0.0,
+                      max: duration.inMilliseconds.toDouble(),
+                      onChanged: (value) {
+                        widget.controller.seekTo(
+                          Duration(milliseconds: value.toInt()),
+                        );
+                      },
                     ),
                   ),
                 ],

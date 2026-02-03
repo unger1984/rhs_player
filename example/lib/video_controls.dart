@@ -7,6 +7,8 @@ import 'package:rhs_player_example/controls/builder/video_controls_builder.dart'
 import 'package:rhs_player_example/controls/core/key_handling_result.dart';
 import 'package:rhs_player_example/controls/items/button_item.dart';
 import 'package:rhs_player_example/controls/items/custom_widget_item.dart';
+import 'package:rhs_player_example/controls/items/quality_selector_item.dart';
+import 'package:rhs_player_example/controls/items/soundtrack_selector_item.dart';
 import 'package:rhs_player_example/controls/items/progress_slider_item.dart';
 import 'package:rhs_player_example/controls/rows/full_width_row.dart';
 import 'package:rhs_player_example/controls/rows/recommended_carousel_row.dart';
@@ -42,6 +44,28 @@ class VideoControls extends StatefulWidget {
 class _VideoControlsState extends State<VideoControls> {
   /// Колбэки навигации из билдера (родительский context не видит VideoControlsNavigation).
   NavCallbacks? _nav;
+
+  /// Показывать кнопку качества только после загрузки видеотреков.
+  bool _hasVideoTracks = false;
+  VoidCallback? _removeVideoTracksListener;
+
+  @override
+  void initState() {
+    super.initState();
+    _removeVideoTracksListener = widget.controller.addVideoTracksListener((
+      tracks,
+    ) {
+      if (mounted) {
+        setState(() => _hasVideoTracks = tracks.isNotEmpty);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _removeVideoTracksListener?.call();
+    super.dispose();
+  }
 
   Widget _buildBufferingOverlay() {
     return StreamBuilder<RhsPlayerStatus>(
@@ -80,7 +104,7 @@ class _VideoControlsState extends State<VideoControls> {
               backgroundColor: const Color(0xCC201B2E),
               horizontalPadding: 120,
               title: 'Тут будет название фильма',
-              items: [
+              leftItems: [
                 ButtonItem(
                   id: 'back_button',
                   onPressed: () => Navigator.of(context).pop(),
@@ -91,6 +115,16 @@ class _VideoControlsState extends State<VideoControls> {
                       padding: EdgeInsets.only(left: 5.w),
                       child: Icon(Icons.arrow_back_ios, color: Colors.white),
                     ),
+                  ),
+                ),
+              ],
+              rightItems: [
+                CustomWidgetItem(
+                  id: 'soundtrack_selector',
+                  builder: (focusNode) => SoundtrackSelectorItem(
+                    controller: widget.controller,
+                    focusNode: focusNode,
+                    onRegisterOverlayFocus: _nav?.registerOverlayFocusNode,
                   ),
                 ),
               ],
@@ -181,20 +215,19 @@ class _VideoControlsState extends State<VideoControls> {
                   ),
                 ),
               ],
-              rightItems: [
-                ButtonItem(
-                  id: 'switch_source_button',
-                  onPressed: () {
-                    _nav?.scheduleFocusRestore('switch_source_button');
-                    widget.onSwitchSource();
-                  },
-                  child: Icon(
-                    Icons.swap_horiz,
-                    color: Colors.white,
-                    size: 32.r,
-                  ),
-                ),
-              ],
+              rightItems: _hasVideoTracks
+                  ? [
+                      CustomWidgetItem(
+                        id: 'quality_selector',
+                        builder: (focusNode) => QualitySelectorItem(
+                          controller: widget.controller,
+                          focusNode: focusNode,
+                          onRegisterOverlayFocus:
+                              _nav?.registerOverlayFocusNode,
+                        ),
+                      ),
+                    ]
+                  : [],
             ),
             RecommendedCarouselRow(
               id: 'recommended_row',

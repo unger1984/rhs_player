@@ -46,6 +46,7 @@ class VideoControlsNavigation extends InheritedWidget {
 typedef NavCallbacks = ({
   void Function(String id) requestFocusOnId,
   void Function(String id) scheduleFocusRestore,
+  void Function(FocusNode?) registerOverlayFocusNode,
 });
 
 /// Билдер для декларативного построения системы управления
@@ -101,6 +102,7 @@ class _VideoControlsBuilderState extends State<VideoControlsBuilder> {
         requestFocusOnId: _navigationManager.requestFocusOnId,
         scheduleFocusRestore: (id) =>
             setState(() => _pendingFocusRestoreId = id),
+        registerOverlayFocusNode: _navigationManager.setOverlayFocusNode,
       ));
     });
   }

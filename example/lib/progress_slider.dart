@@ -418,8 +418,11 @@ class _ProgressSliderState extends State<ProgressSlider> {
   }
 
   String _formatDuration(Duration duration) {
+    final hours = duration.inHours > 0
+        ? duration.inHours.remainder(60).toString().padLeft(2, '0')
+        : null;
     final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
     final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
-    return '$minutes:$seconds';
+    return '${hours != null ? '$hours:' : ''}$minutes:$seconds';
   }
 }

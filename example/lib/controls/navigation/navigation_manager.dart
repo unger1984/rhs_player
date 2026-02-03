@@ -11,6 +11,13 @@ class NavigationManager {
   final FocusNode? initialFocusNode;
   final String? initialFocusId;
 
+  /// Фокус открытого оверлея (меню качества и т.п.). Пока он задан — не забираем фокус в контролы.
+  FocusNode? _overlayFocusNode;
+
+  void setOverlayFocusNode(FocusNode? node) {
+    _overlayFocusNode = node;
+  }
+
   NavigationManager({
     required List<ControlRow> rows,
     this.initialFocusNode,
@@ -50,9 +57,13 @@ class NavigationManager {
       return KeyEventResult.handled;
     }
 
-    // Находим текущий элемент; если фокус вне контролов — возвращаем в известный элемент
+    // Находим текущий элемент. Если фокус вне контролов — не забираем в контролы, пока открыт оверлей
+    // (меню качества и т.п.), иначе фокус уйдёт на play и стрелки не попадут в меню.
     final currentItem = _findItemByFocusNode(currentFocus);
     if (currentItem == null) {
+      if (_overlayFocusNode != null) {
+        return KeyEventResult.ignored;
+      }
       _requestInitialFocus(deferred: true);
       return KeyEventResult.handled;
     }

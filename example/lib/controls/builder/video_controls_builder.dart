@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:rhs_player_example/controls/core/control_row.dart';
 import 'package:rhs_player_example/controls/navigation/navigation_manager.dart';
 
@@ -127,7 +128,7 @@ class _VideoControlsBuilderState extends State<VideoControlsBuilder> {
                   widget.rows.first.build(context),
                   const Spacer(),
                   for (var i = 1; i < widget.rows.length; i++) ...[
-                    if (i > 1) SizedBox(height: widget.spacing),
+                    if (i > 1) SizedBox(height: widget.spacing.h),
                     widget.rows[i].build(context),
                   ],
                 ],

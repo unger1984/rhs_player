@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:rhs_player_example/controls/core/control_row.dart';
 
 /// Ряд с горизонтальным расположением элементов (кнопки)
@@ -21,7 +22,7 @@ class HorizontalButtonRow extends BaseControlRow {
       children: [
         for (var i = 0; i < items.length; i++) ...[
           items[i].build(context),
-          if (i < items.length - 1) SizedBox(width: spacing),
+          if (i < items.length - 1) SizedBox(width: spacing.w),
         ],
       ],
     );

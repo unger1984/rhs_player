@@ -6,13 +6,13 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 List<BoxShadow> _focusGlow() => [
   BoxShadow(
     color: const Color(0xFFB3E5FC).withValues(alpha: 0.95),
-    blurRadius: 20,
-    spreadRadius: 4,
+    blurRadius: 20.r,
+    spreadRadius: 4.r,
   ),
   BoxShadow(
     color: Colors.white.withValues(alpha: 0.6),
-    blurRadius: 12,
-    spreadRadius: 2,
+    blurRadius: 12.r,
+    spreadRadius: 2.r,
   ),
 ];
 

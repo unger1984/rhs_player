@@ -9,6 +9,7 @@ import 'package:rhs_player_example/controls/items/button_item.dart';
 import 'package:rhs_player_example/controls/items/custom_widget_item.dart';
 import 'package:rhs_player_example/controls/items/progress_slider_item.dart';
 import 'package:rhs_player_example/controls/rows/full_width_row.dart';
+import 'package:rhs_player_example/controls/rows/recommended_carousel_row.dart';
 import 'package:rhs_player_example/controls/rows/three_zone_button_row.dart';
 import 'package:rhs_player_example/controls/rows/top_bar_row.dart';
 
@@ -69,7 +70,7 @@ class VideoControls extends StatelessWidget {
         ThreeZoneButtonRow(
           id: 'control_buttons_row',
           index: 2,
-          spacing: 32.w,
+          spacing: 32,
           leftItems: [
             ButtonItem(
               id: 'favorite_button',
@@ -141,17 +142,32 @@ class VideoControls extends StatelessWidget {
                 )?.scheduleFocusRestore('switch_source_button');
                 onSwitchSource();
               },
-              child: const Icon(
-                Icons.swap_horiz,
-                color: Colors.white,
-                size: 32,
-              ),
+              child: Icon(Icons.swap_horiz, color: Colors.white, size: 32.r),
             ),
           ],
+        ),
+        RecommendedCarouselRow(
+          id: 'recommended_row',
+          index: 3,
+          carouselItems: _recommendedItems,
+          onItemSelected: (index) {},
         ),
       ],
     );
   }
+
+  static final List<RecommendedCarouselItem> _recommendedItems = List.generate(
+    8,
+    (i) => RecommendedCarouselItem(
+      title: 'Фильм ${i + 1}',
+      image: Container(
+        color: const Color(0xFF2A303C),
+        child: Center(
+          child: Icon(Icons.movie, color: Colors.white54, size: 48.r),
+        ),
+      ),
+    ),
+  );
 
   void _seekBackward() {
     final newPosition =

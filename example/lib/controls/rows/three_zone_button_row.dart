@@ -28,7 +28,7 @@ class ThreeZoneButtonRow extends BaseControlRow {
       children: [
         for (var i = 0; i < zoneItems.length; i++) ...[
           zoneItems[i].build(context),
-          if (i < zoneItems.length - 1) SizedBox(width: spacing),
+          if (i < zoneItems.length - 1) SizedBox(width: spacing.w),
         ],
       ],
     );

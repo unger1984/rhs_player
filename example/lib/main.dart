@@ -18,7 +18,7 @@ class MyApp extends StatelessWidget {
     return ScreenUtilInit(
       designSize: const Size(1920, 1080),
       minTextAdapt: true,
-      splitScreenMode: true,
+      splitScreenMode: false,
       // Use builder only if you need to use library outside ScreenUtilInit context
       builder: (_, child) => MaterialApp(
         title: 'Rhs_player Example',

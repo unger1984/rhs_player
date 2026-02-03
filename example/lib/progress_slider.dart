@@ -16,15 +16,23 @@ const Color _bufferedColor = Color(0xFFB0B4BF);
 const Color _thumbFillUnfocused = Color(0xFFEFF1F5);
 
 /// Голубовато-белое неоновое свечение при фокусе (как у кнопок).
-void _paintFocusGlow(Canvas canvas, Offset center, double radius) {
+void _paintFocusGlow(
+  Canvas canvas,
+  Offset center,
+  double radius, {
+  required double glowSpread1,
+  required double glowBlur1,
+  required double glowSpread2,
+  required double glowBlur2,
+}) {
   final glowPaint = Paint()
     ..color = const Color(0xFFB3E5FC).withValues(alpha: 0.95)
-    ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 20);
-  canvas.drawCircle(center, radius + 4, glowPaint);
+    ..maskFilter = MaskFilter.blur(BlurStyle.normal, glowBlur1);
+  canvas.drawCircle(center, radius + glowSpread1, glowPaint);
   final whiteGlowPaint = Paint()
     ..color = Colors.white.withValues(alpha: 0.6)
-    ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12);
-  canvas.drawCircle(center, radius + 2, whiteGlowPaint);
+    ..maskFilter = MaskFilter.blur(BlurStyle.normal, glowBlur2);
+  canvas.drawCircle(center, radius + glowSpread2, whiteGlowPaint);
 }
 
 /// Трек с сегментом буфера перед ползунком (цвет B0B4BF).
@@ -147,6 +155,10 @@ class _ProgressThumbShape extends SliderComponentShape {
   final Color borderColor;
   final Color fillColor;
   final bool isFocused;
+  final double glowSpread1;
+  final double glowBlur1;
+  final double glowSpread2;
+  final double glowBlur2;
 
   const _ProgressThumbShape({
     required this.radius,
@@ -154,6 +166,10 @@ class _ProgressThumbShape extends SliderComponentShape {
     required this.borderColor,
     required this.fillColor,
     this.isFocused = false,
+    this.glowSpread1 = 4,
+    this.glowBlur1 = 20,
+    this.glowSpread2 = 2,
+    this.glowBlur2 = 12,
   });
 
   @override
@@ -178,7 +194,15 @@ class _ProgressThumbShape extends SliderComponentShape {
   }) {
     final canvas = context.canvas;
     if (isFocused) {
-      _paintFocusGlow(canvas, center, radius);
+      _paintFocusGlow(
+        canvas,
+        center,
+        radius,
+        glowSpread1: glowSpread1,
+        glowBlur1: glowBlur1,
+        glowSpread2: glowSpread2,
+        glowBlur2: glowBlur2,
+      );
     }
     final fillPaint = Paint()
       ..color = fillColor
@@ -337,6 +361,10 @@ class _ProgressSliderState extends State<ProgressSlider> {
                 borderColor: _activeColor,
                 fillColor: hasFocus ? _activeColor : _thumbFillUnfocused,
                 isFocused: hasFocus,
+                glowSpread1: 4.r,
+                glowBlur1: 20.r,
+                glowSpread2: 2.r,
+                glowBlur2: 12.r,
               );
               return Column(
                 mainAxisSize: MainAxisSize.min,
@@ -348,7 +376,7 @@ class _ProgressSliderState extends State<ProgressSlider> {
                       alignment: Alignment.centerRight,
                       child: Text(
                         '${_formatDuration(position)} / ${_formatDuration(duration)}',
-                        style: const TextStyle(color: Colors.white),
+                        style: TextStyle(color: Colors.white, fontSize: 24.sp),
                       ),
                     ),
                   ),

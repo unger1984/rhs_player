@@ -11,11 +11,13 @@ This file provides guidance to agents when working with code in this repository.
 ## Critical Architecture Rules (MANDATORY)
 
 ### Flutter
+
 - 1 Controller = 1 native player (strict 1:1 mapping)
 - All logic lives in Controller, no state in Widget
 - Use TextureRegistry only (no SurfaceView / PlatformView for video)
 
 ### Android
+
 - Use androidx.media3 ExoPlayer only
 - No singleton ExoPlayer instances
 - Explicit lifecycle: create → release
@@ -24,12 +26,14 @@ This file provides guidance to agents when working with code in this repository.
 ## Non-Standard Patterns
 
 ### Controller-View Architecture
+
 - Controller holds all playback logic
 - View is purely visual with optional overlay
 - attachViewId() method binds controller to native view ID
-- Method channels are view-specific (rhsplayer/view_$id)
+- Method channels are view-specific (rhsplayer/view\_$id)
 
 ### Event System
+
 - Separate event channels for different data types:
   - Playback state (position, duration, buffering, playing, error)
   - Track information (video/audio/subtitle tracks)
@@ -37,12 +41,14 @@ This file provides guidance to agents when working with code in this repository.
 - No polling - native side pushes updates
 
 ### Track Selection
+
 - Video tracks identified by "height:width:bitrate" string format
 - selectVideoTrack() uses double approach: override + max size/bitrate
 - Audio/subtitle tracks use "groupIndex:trackIndex" format
 - Tracks are sent to Flutter immediately when available
 
 ### Android TV Support
+
 - Custom focus navigation system with Chain of Responsibility pattern
 - Rows and items are structured in a grid for directional navigation
 - ProgressSliderItem handles arrow keys for seeking
@@ -50,12 +56,14 @@ This file provides guidance to agents when working with code in this repository.
 - Simultaneous mouse and remote control support
 
 ### DRM Handling
+
 - DRM config comes from Flutter side
 - Native side must not store keys
 - Supports Widevine and ClearKey
 - Custom HTTP client provider for network requests
 
 ### Memory Management
+
 - SharedPlayerEntry with reference counting
 - WeakReference for attached views to prevent memory leaks
 - Proper cleanup in dispose() methods
@@ -78,6 +86,10 @@ This file provides guidance to agents when working with code in this repository.
 - No operator `!` - use null-aware operators instead
 - Extensive logging with android.util.Log.d for debugging
 
+### Example app (example/)
+
+- **Sizes:** All dimensions use `flutter_screenutil` (designSize 1920×1080 from Figma). Use `.w`, `.h`, `.r`, `.sp` — no raw pixel values for layout, fonts, or icons.
+
 ## Testing Specifics
 
 - Unit tests for platform interface and method channel
@@ -92,6 +104,7 @@ This file provides guidance to agents when working with code in this repository.
 - Ready fallback timer for edge cases in playback start
 - Data saver mode applies bitrate limits through track selection
 - Picture-in-Picture requires Android O+ and activity context
+
 # AI Правила для Flutter Plugin разработки
 
 Для ответов и комментариев используй Русский язык
@@ -151,6 +164,7 @@ This file provides guidance to agents when working with code in this repository.
 - **Простота:** Код должен быть понятным и легко читаемым.
 - **UI:** Чистый, функциональный интерфейс для тестирования фич.
 - **Документация:** README с примерами использования.
+- **Размеры:** Все размеры в example — через `flutter_screenutil` (designSize 1920×1080, макет из Figma). Использовать `.w`, `.h`, `.r`, `.sp`; сырые пиксели для верстки/шрифтов/иконок не использовать.
 
 ## Тестирование плагина
 

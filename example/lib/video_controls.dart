@@ -36,7 +36,7 @@ class VideoControls extends StatelessWidget {
           index: 0,
           height: 124,
           backgroundColor: const Color(0xCC201B2E),
-          leftPadding: 120,
+          horizontalPadding: 120,
           title: 'Тут будет название фильма',
           items: [
             ButtonItem(
@@ -56,6 +56,7 @@ class VideoControls extends StatelessWidget {
         FullWidthRow(
           id: 'progress_row',
           index: 1,
+          padding: EdgeInsets.symmetric(horizontal: 120.w),
           items: [
             ProgressSliderItem(
               id: 'progress_slider',

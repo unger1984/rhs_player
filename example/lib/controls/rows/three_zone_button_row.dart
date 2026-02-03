@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:rhs_player_example/controls/core/control_row.dart';
 import 'package:rhs_player_example/controls/core/focusable_item.dart';
 
@@ -8,6 +9,7 @@ class ThreeZoneButtonRow extends BaseControlRow {
   final List<FocusableItem> centerItems;
   final List<FocusableItem> rightItems;
   final double spacing;
+  final double horizontalPadding;
 
   ThreeZoneButtonRow({
     required super.id,
@@ -16,6 +18,7 @@ class ThreeZoneButtonRow extends BaseControlRow {
     required this.centerItems,
     required this.rightItems,
     this.spacing = 40,
+    this.horizontalPadding = 120,
   }) : super(items: [...leftItems, ...centerItems, ...rightItems]);
 
   Widget _buildZone(BuildContext context, List<FocusableItem> zoneItems) {
@@ -33,13 +36,16 @@ class ThreeZoneButtonRow extends BaseControlRow {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        _buildZone(context, leftItems),
-        _buildZone(context, centerItems),
-        _buildZone(context, rightItems),
-      ],
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: horizontalPadding.w),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          _buildZone(context, leftItems),
+          _buildZone(context, centerItems),
+          _buildZone(context, rightItems),
+        ],
+      ),
     );
   }
 }

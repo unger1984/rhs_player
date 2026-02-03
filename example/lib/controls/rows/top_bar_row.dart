@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:rhs_player_example/controls/core/control_row.dart';
 
-/// Верхняя панель фиксированной высоты и цвета с отступом слева
+/// Верхняя панель фиксированной высоты и цвета с отступами слева и справа
 class TopBarRow extends BaseControlRow {
   final double height;
   final Color backgroundColor;
-  final double leftPadding;
+  final double horizontalPadding;
   final String? title;
 
   TopBarRow({
@@ -15,7 +15,7 @@ class TopBarRow extends BaseControlRow {
     required super.items,
     this.height = 124,
     this.backgroundColor = const Color(0xFF201B2E),
-    this.leftPadding = 120,
+    this.horizontalPadding = 120,
     this.title,
   });
 
@@ -31,7 +31,7 @@ class TopBarRow extends BaseControlRow {
         Container(
           height: height.h,
           alignment: Alignment.centerLeft,
-          padding: EdgeInsets.only(left: leftPadding.w),
+          padding: EdgeInsets.symmetric(horizontal: horizontalPadding.w),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [

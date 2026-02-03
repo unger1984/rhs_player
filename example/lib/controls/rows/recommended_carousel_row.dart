@@ -51,10 +51,15 @@ class _RecommendedCarouselWidgetState
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Оба размера в .w, чтобы соотношение 388:220 не ломалось на разных экранах.
-    _cardWidth = 388.w;
-    _cardHeight = 220.w;
-    _gap = 40.w;
+    // Обновляем только при изменении (AGENTS.md: designSize 1920×1080, .w/.h/.r/.sp).
+    final w = 388.w;
+    final h = 220.w;
+    final g = 40.w;
+    if (_cardWidth != w || _cardHeight != h || _gap != g) {
+      _cardWidth = w;
+      _cardHeight = h;
+      _gap = g;
+    }
   }
 
   @override
@@ -70,10 +75,13 @@ class _RecommendedCarouselWidgetState
 
   void _scrollToIndex(int index) {
     if (index < 0 || index >= widget.items.length) return;
+    if (!_scrollController.hasClients) return;
     setState(() => _scrollIndex = index);
-    final offset = _offsetForIndex(index);
+    final rawOffset = _offsetForIndex(index);
+    final position = _scrollController.position;
+    final clampedOffset = rawOffset.clamp(0.0, position.maxScrollExtent);
     _scrollController.animateTo(
-      offset,
+      clampedOffset,
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
     );
@@ -113,7 +121,7 @@ class _RecommendedCarouselWidgetState
           mainAxisSize: MainAxisSize.min,
           children: [
             Padding(
-              padding: EdgeInsets.only(bottom: 12.h),
+              padding: EdgeInsets.only(left: 120.w, bottom: 12.h),
               child: Text(
                 'Рекомендуем посмотреть',
                 style: TextStyle(
@@ -134,7 +142,7 @@ class _RecommendedCarouselWidgetState
                     padding: EdgeInsets.only(left: 120.w),
                     itemCount: widget.items.length,
                     itemExtent: _cardWidth + _gap,
-                    physics: const BouncingScrollPhysics(),
+                    physics: const ClampingScrollPhysics(),
                     itemBuilder: (context, index) {
                       final carouselItem = widget.items[index];
                       final isFirstVisible = index == _scrollIndex;
@@ -270,15 +278,38 @@ class _AnimatedRecommendedRowContentState
     }
   }
 
+  /// Высота «подглядывающей» полоски, когда фокус не на карусели.
+  static double _peekHeight(BuildContext context) => 96.h;
+
+  static const double _expandedHeight = 320;
+
+  /// Отступ снизу в режиме фокуса, чтобы слайды не прижимались к низу экрана.
+  static double _bottomPadding(BuildContext context) => 40.h;
+
   @override
   Widget build(BuildContext context) {
+    final expandedHeight = _expandedHeight.h;
+    final visibleHeight = _hasFocus ? expandedHeight : _peekHeight(context);
+    final contentChild = _hasFocus
+        ? Padding(
+            padding: EdgeInsets.only(bottom: _bottomPadding(context)),
+            child: widget.child,
+          )
+        : widget.child;
     return AnimatedSize(
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
       alignment: Alignment.topCenter,
       child: SizedBox(
-        height: _hasFocus ? 320.h : 0,
-        child: ClipRect(child: widget.child),
+        height: visibleHeight,
+        child: ClipRect(
+          child: OverflowBox(
+            alignment: Alignment.topCenter,
+            minHeight: 0,
+            maxHeight: expandedHeight,
+            child: SizedBox(height: expandedHeight, child: contentChild),
+          ),
+        ),
       ),
     );
   }

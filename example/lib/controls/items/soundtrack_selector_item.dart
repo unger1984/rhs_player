@@ -318,8 +318,8 @@ class _SoundtrackSelectorItemState extends State<SoundtrackSelectorItem> {
                         builder: (_, tracks, _) {
                           final label = _currentLabel(tracks);
                           return Row(
-                            mainAxisSize: MainAxisSize.min,
-                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.max,
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               ImageIcon(
                                 const AssetImage('assets/controls/music.png'),
@@ -327,9 +327,10 @@ class _SoundtrackSelectorItemState extends State<SoundtrackSelectorItem> {
                                 size: 48.r,
                               ),
                               SizedBox(width: 10.w),
-                              Flexible(
+                              Expanded(
                                 child: Text(
                                   label,
+                                  textAlign: TextAlign.center,
                                   style: TextStyle(
                                     color: Colors.white,
                                     fontSize: 28.sp,
@@ -342,26 +343,7 @@ class _SoundtrackSelectorItemState extends State<SoundtrackSelectorItem> {
                           );
                         },
                       )
-                    : Row(
-                        mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          ImageIcon(
-                            const AssetImage('assets/controls/music.png'),
-                            color: Colors.white,
-                            size: 48.r,
-                          ),
-                          SizedBox(width: 10.w),
-                          Text(
-                            '—',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 28.sp,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
+                    : SizedBox(),
               );
             },
           ),

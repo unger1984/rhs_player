@@ -323,7 +323,7 @@ class _QualitySelectorItemState extends State<QualitySelectorItem> {
                         builder: (_, tracks, _) {
                           final label = _currentLabel(tracks);
                           return Row(
-                            mainAxisSize: MainAxisSize.min,
+                            mainAxisSize: MainAxisSize.max,
                             children: [
                               ImageIcon(
                                 AssetImage('assets/controls/quality.png'),
@@ -331,37 +331,22 @@ class _QualitySelectorItemState extends State<QualitySelectorItem> {
                                 size: 56.r,
                               ),
                               SizedBox(width: 12.w),
-                              Text(
-                                label,
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 32.sp,
-                                  fontWeight: FontWeight.w500,
+                              Expanded(
+                                child: Text(
+                                  label,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 32.sp,
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                 ),
                               ),
                             ],
                           );
                         },
                       )
-                    : Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          ImageIcon(
-                            AssetImage('assets/controls/quality.png'),
-                            color: Colors.white,
-                            size: 56.r,
-                          ),
-                          SizedBox(width: 12.w),
-                          Text(
-                            '—',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 32.sp,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
+                    : SizedBox(),
               );
             },
           ),

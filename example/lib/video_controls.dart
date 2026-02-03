@@ -49,6 +49,10 @@ class _VideoControlsState extends State<VideoControls> {
   bool _hasVideoTracks = false;
   VoidCallback? _removeVideoTracksListener;
 
+  /// Показывать кнопку саундтрека только при наличии аудиотреков.
+  bool _hasAudioTracks = false;
+  VoidCallback? _removeAudioTracksListener;
+
   @override
   void initState() {
     super.initState();
@@ -59,11 +63,19 @@ class _VideoControlsState extends State<VideoControls> {
         setState(() => _hasVideoTracks = tracks.isNotEmpty);
       }
     });
+    _removeAudioTracksListener = widget.controller.addAudioTracksListener((
+      tracks,
+    ) {
+      if (mounted) {
+        setState(() => _hasAudioTracks = tracks.isNotEmpty);
+      }
+    });
   }
 
   @override
   void dispose() {
     _removeVideoTracksListener?.call();
+    _removeAudioTracksListener?.call();
     super.dispose();
   }
 
@@ -118,16 +130,19 @@ class _VideoControlsState extends State<VideoControls> {
                   ),
                 ),
               ],
-              rightItems: [
-                CustomWidgetItem(
-                  id: 'soundtrack_selector',
-                  builder: (focusNode) => SoundtrackSelectorItem(
-                    controller: widget.controller,
-                    focusNode: focusNode,
-                    onRegisterOverlayFocus: _nav?.registerOverlayFocusNode,
-                  ),
-                ),
-              ],
+              rightItems: _hasAudioTracks
+                  ? [
+                      CustomWidgetItem(
+                        id: 'soundtrack_selector',
+                        builder: (focusNode) => SoundtrackSelectorItem(
+                          controller: widget.controller,
+                          focusNode: focusNode,
+                          onRegisterOverlayFocus:
+                              _nav?.registerOverlayFocusNode,
+                        ),
+                      ),
+                    ]
+                  : [],
             ),
             FullWidthRow(
               id: 'progress_row',

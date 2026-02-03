@@ -207,12 +207,16 @@ class QualitySelectorItem extends StatefulWidget {
   final RhsPlayerController controller;
   final FocusNode focusNode;
   final void Function(FocusNode?)? onRegisterOverlayFocus;
+  final VoidCallback? onMenuOpened;
+  final VoidCallback? onMenuClosed;
 
   const QualitySelectorItem({
     super.key,
     required this.controller,
     required this.focusNode,
     this.onRegisterOverlayFocus,
+    this.onMenuOpened,
+    this.onMenuClosed,
   });
 
   @override
@@ -248,6 +252,9 @@ class _QualitySelectorItemState extends State<QualitySelectorItem> {
     final size = box.size;
     final selectedId = widget.controller.selectedVideoTrackId;
 
+    // Уведомляем родителя, что меню открыто
+    widget.onMenuOpened?.call();
+
     // Не вызываем unfocus() — иначе фокус сразу уходит на play/pause. Забираем фокус в меню через requestFocus в диалоге.
     final selected = await showDialog<String>(
       context: context,
@@ -262,8 +269,13 @@ class _QualitySelectorItemState extends State<QualitySelectorItem> {
       ),
     );
 
+    // Уведомляем родителя, что меню закрыто
+    widget.onMenuClosed?.call();
+
     if (selected != null && mounted) {
       await widget.controller.selectVideoTrack(selected);
+      // Убираем фокус с кнопки после выбора трека, чтобы она не оставалась подсвеченной
+      widget.focusNode.unfocus();
       setState(() {});
     }
   }

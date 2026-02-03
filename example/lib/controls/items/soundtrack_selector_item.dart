@@ -207,12 +207,16 @@ class SoundtrackSelectorItem extends StatefulWidget {
   final RhsPlayerController controller;
   final FocusNode focusNode;
   final void Function(FocusNode?)? onRegisterOverlayFocus;
+  final VoidCallback? onMenuOpened;
+  final VoidCallback? onMenuClosed;
 
   const SoundtrackSelectorItem({
     super.key,
     required this.controller,
     required this.focusNode,
     this.onRegisterOverlayFocus,
+    this.onMenuOpened,
+    this.onMenuClosed,
   });
 
   @override
@@ -243,6 +247,9 @@ class _SoundtrackSelectorItemState extends State<SoundtrackSelectorItem> {
     final size = box.size;
     final selectedId = tracks.firstWhereOrNull((t) => t.selected)?.id;
 
+    // Уведомляем родителя, что меню открыто
+    widget.onMenuOpened?.call();
+
     // Не вызываем unfocus() — иначе фокус сразу уходит на другой элемент. Забираем фокус в меню через requestFocus в диалоге.
     final selected = await showDialog<String>(
       context: context,
@@ -257,8 +264,13 @@ class _SoundtrackSelectorItemState extends State<SoundtrackSelectorItem> {
       ),
     );
 
+    // Уведомляем родителя, что меню закрыто
+    widget.onMenuClosed?.call();
+
     if (selected != null && mounted) {
       await widget.controller.selectAudioTrack(selected);
+      // Убираем фокус с кнопки после выбора трека, чтобы она не оставалась подсвеченной
+      widget.focusNode.unfocus();
       setState(() {});
     }
   }

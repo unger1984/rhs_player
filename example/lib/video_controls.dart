@@ -64,6 +64,9 @@ class _VideoControlsState extends State<VideoControls> {
   /// Таймер скрытия слайдера после перемотки (контролы скрыты).
   Timer? _seekingOverlayTimer;
 
+  /// Открыто меню выбора качества или саундтрека — контролы скрывать нельзя.
+  bool _isMenuOpen = false;
+
   /// Показывать кнопку качества только после загрузки видеотреков.
   bool _hasVideoTracks = false;
   VoidCallback? _removeVideoTracksListener;
@@ -189,9 +192,23 @@ class _VideoControlsState extends State<VideoControls> {
         if (!mounted) return;
         final status = widget.controller.currentPlayerStatus;
         if (status is RhsPlayerStatusPaused) return;
+        // Не скрывать контролы, если открыто меню качества/саундтрека
+        if (_isMenuOpen) return;
         _hideControls();
       });
     }
+  }
+
+  void _onMenuOpened() {
+    debugPrint('VideoControls: menu opened, canceling hide timer');
+    _hideTimer?.cancel();
+    setState(() => _isMenuOpen = true);
+  }
+
+  void _onMenuClosed() {
+    debugPrint('VideoControls: menu closed, resetting hide timer');
+    setState(() => _isMenuOpen = false);
+    _resetHideTimer();
   }
 
   void _toggleControlsVisibility() {
@@ -269,6 +286,8 @@ class _VideoControlsState extends State<VideoControls> {
                           focusNode: focusNode,
                           onRegisterOverlayFocus:
                               _nav?.registerOverlayFocusNode,
+                          onMenuOpened: _onMenuOpened,
+                          onMenuClosed: _onMenuClosed,
                         ),
                       ),
                     ]
@@ -376,6 +395,8 @@ class _VideoControlsState extends State<VideoControls> {
                           focusNode: focusNode,
                           onRegisterOverlayFocus:
                               _nav?.registerOverlayFocusNode,
+                          onMenuOpened: _onMenuOpened,
+                          onMenuClosed: _onMenuClosed,
                         ),
                       ),
                     ]

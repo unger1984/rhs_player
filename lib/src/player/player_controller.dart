@@ -364,6 +364,31 @@ class RhsPlayerController {
     return ok ?? false;
   }
 
+  /// Загружает новый медиа-источник, заменяя текущий плейлист.
+  ///
+  /// [source] - новый медиа-источник для загрузки.
+  /// [autoPlay] - флаг, указывающий, должно ли воспроизведение начаться автоматически.
+  Future<void> loadMediaSource(RhsMediaSource source, {bool? autoPlay}) async {
+    // Обновляем плейлист в контроллере
+    playlist.clear();
+    playlist.add(source);
+
+    final bool shouldPlay = autoPlay ?? this.autoPlay;
+    _wasPlaying = shouldPlay;
+    _resumePositionMs = 0; // Сбрасываем позицию
+
+    await _invoke('loadMediaSource', {
+      'source': {
+        'url': source.url,
+        'headers': source.headers ?? {},
+        'drm': _drmToMap(source.drm),
+        'thumbnailVttUrl': source.thumbnailVttUrl,
+        'thumbnailHeaders': source.thumbnailHeaders,
+      },
+      'autoPlay': shouldPlay,
+    });
+  }
+
   /// Освобождает нативные ресурсы.
   Future<void> dispose() async {
     await _invoke('dispose');

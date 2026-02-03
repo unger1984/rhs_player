@@ -183,6 +183,14 @@ class RhsPlayerPlatformView(
           dispose()
           result.success(null)
         }
+        "loadMediaSource" -> {
+          val source = call.argument<Map<*, *>>("source")
+          val autoPlay = call.argument<Boolean>("autoPlay") ?: false
+          if (source != null) {
+            loadNewMediaSource(source, autoPlay)
+          }
+          result.success(null)
+        }
         else -> result.notImplemented()
       }
     }
@@ -657,6 +665,76 @@ class RhsPlayerPlatformView(
       activity.enterPictureInPictureMode(builder.build())
     } catch (t: Throwable) {
       false
+    }
+  }
+
+  private fun loadNewMediaSource(sourceData: Map<*, *>, autoPlay: Boolean) {
+    val url = sourceData["url"] as? String ?: return
+    val headers = (sourceData["headers"] as? Map<*, *>)?.mapNotNull { (k, v) ->
+      if (k is String && v is String) k to v else null
+    }?.toMap() ?: emptyMap()
+    val drmMap = sourceData["drm"] as? Map<*, *>
+
+    val builder = MediaItem.Builder().setUri(Uri.parse(url))
+
+    drmMap?.let {
+      val type = (it["type"] as? String)?.lowercase()
+      val licenseUrl = it["licenseUrl"] as? String
+      val contentId = it["contentId"] as? String
+      val clearKeyJson = it["clearKey"] as? String
+      val drmHeaders = (it["headers"] as? Map<*, *>)?.mapNotNull { (k, v) ->
+        if (k is String && v is String) k to v else null
+      }?.toMap() ?: emptyMap()
+      when (type) {
+        "widevine" -> {
+          if (licenseUrl != null) {
+            val drmBuilder = MediaItem.DrmConfiguration.Builder(C.WIDEVINE_UUID)
+            drmBuilder.setLicenseUri(licenseUrl)
+            val reqHeaders = mutableMapOf<String, String>()
+            if (contentId != null) reqHeaders["Content-ID"] = contentId
+            if (drmHeaders.isNotEmpty()) reqHeaders.putAll(drmHeaders)
+            if (reqHeaders.isNotEmpty()) drmBuilder.setLicenseRequestHeaders(reqHeaders)
+            builder.setDrmConfiguration(drmBuilder.build())
+          }
+        }
+        "clearkey" -> {
+          val drmBuilder = MediaItem.DrmConfiguration.Builder(C.CLEARKEY_UUID)
+          if (clearKeyJson != null) {
+            val b64 = Base64.encodeToString(clearKeyJson.toByteArray(Charsets.UTF_8), Base64.NO_WRAP)
+            drmBuilder.setLicenseUri("data:application/json;base64,$b64")
+          } else if (licenseUrl != null) {
+            drmBuilder.setLicenseUri(licenseUrl)
+          }
+          if (drmHeaders.isNotEmpty()) {
+            drmBuilder.setLicenseRequestHeaders(drmHeaders)
+          }
+          builder.setDrmConfiguration(drmBuilder.build())
+        }
+      }
+    }
+
+    val mediaItem = builder.build()
+    val okClient = RhsPlayerHttpClientProvider.obtainClient()
+    val httpFactory: DataSource.Factory = OkHttpDataSource.Factory(okClient)
+        .setDefaultRequestProperties(headers)
+    val msFactory = DefaultMediaSourceFactory(httpFactory)
+        .setLoadErrorHandlingPolicy(
+            ConfigurableLoadErrorPolicy(playbackOptions)
+        )
+    val mediaSource = msFactory.createMediaSource(mediaItem)
+
+    sharedEntry.pendingPlayOnceReady = autoPlay
+    sharedEntry.hasRenderedFirstFrame = false
+    cancelReadyFallback()
+    player.playWhenReady = false
+    suppressAudio()
+
+    player.setMediaSource(mediaSource)
+    player.prepare()
+
+    if (!autoPlay) {
+      player.pause()
+      restoreAudio()
     }
   }
 

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:rhs_player/rhs_player.dart';
 
+import 'package:rhs_player_example/video_controls.dart';
+
 class PlayerScreen extends StatelessWidget {
   const PlayerScreen({super.key});
 
@@ -18,6 +20,21 @@ class _PlayerScreenContent extends StatefulWidget {
 }
 
 class _PlayerScreenContentState extends State<_PlayerScreenContent> {
+  final media1 = RhsMediaSource(
+    "https://user67561.nowcdn.co/done/widevine_playready/7c6be93192a4888f3491f46fee3dbcb57c77bd08/index.mpd",
+    drm: const RhsDrmConfig(
+      type: RhsDrmType.widevine,
+      licenseUrl: 'https://drm93075.nowdrm.co/widevine',
+    ),
+  );
+  final media2 = RhsMediaSource(
+    "https://user67561.nowcdn.co/done/widevine_playready/34b23ff04263fd82a6e8f2a096b2771ba5bd4de9/index.mpd",
+    drm: const RhsDrmConfig(
+      type: RhsDrmType.widevine,
+      licenseUrl: 'https://drm93075.nowdrm.co/widevine',
+    ),
+  );
+  int _vid = 0;
   late RhsPlayerController controller;
 
   @override
@@ -26,17 +43,7 @@ class _PlayerScreenContentState extends State<_PlayerScreenContent> {
     // ВАЖНО: DRM (Widevine) может не работать на эмуляторе!
     // Для тестирования на эмуляторе используйте видео без DRM, например:
     // RhsMediaSource("https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4")
-    controller = RhsPlayerController.single(
-      RhsMediaSource(
-        "https://user67561.nowcdn.co/done/widevine_playready/7c6be93192a4888f3491f46fee3dbcb57c77bd08/index.mpd",
-        drm: const RhsDrmConfig(
-          type: RhsDrmType.widevine,
-          licenseUrl: 'https://drm93075.nowdrm.co/widevine',
-        ),
-      ),
-      autoPlay: true,
-      loop: false,
-    );
+    controller = RhsPlayerController.single(media1);
 
     controller.addStatusListener((status) {
       if (status is RhsPlayerStatusError) {
@@ -71,20 +78,33 @@ class _PlayerScreenContentState extends State<_PlayerScreenContent> {
     super.dispose();
   }
 
+  void _handleChange() {
+    if (_vid == 1) {
+      controller.loadMediaSource(media2);
+      setState(() {
+        _vid = 2;
+      });
+    } else {
+      controller.loadMediaSource(media1);
+      setState(() {
+        _vid = 1;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.black,
       body: Center(
         child: AspectRatio(
           aspectRatio: 16 / 9,
           child: RhsPlayerView(
             controller: controller,
             boxFit: BoxFit.contain,
-            overlay: Column(
-              mainAxisSize: MainAxisSize.max,
-              children: [
-                ElevatedButton(onPressed: () {}, child: Text('Переключить')),
-              ],
+            overlay: VideoControls(
+              controller: controller,
+              onSwitchSource: _handleChange,
             ),
           ),
         ),

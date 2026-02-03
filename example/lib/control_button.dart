@@ -38,10 +38,16 @@ class ControlButton extends StatelessWidget {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: focused ? Colors.blue.withAlpha(51) : null,
-                border: focused
-                    ? Border.all(color: Colors.blue, width: 3)
-                    : null,
                 borderRadius: BorderRadius.circular(8),
+                boxShadow: focused
+                    ? [
+                        BoxShadow(
+                          color: Colors.blue.withOpacity(0.8),
+                          blurRadius: 12,
+                          spreadRadius: 2,
+                        ),
+                      ]
+                    : null,
               ),
               child: child,
             ),

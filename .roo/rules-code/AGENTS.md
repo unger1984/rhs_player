@@ -1,0 +1,21 @@
+# Project Coding Rules (Non-Obvious Only)
+
+- Always use Rhs prefix for classes, e.g., RhsPlayerController, RhsMediaSource
+- Controller holds ALL playback logic - no business logic in Widgets
+- Use TextureRegistry only (no SurfaceView/PlatformView) for video rendering
+- Video track selection requires double approach: override + max size/bitrate
+- Audio suppression during buffering prevents audio glitches
+- SharedPlayerEntry with reference counting prevents memory leaks
+- attachViewId() method binds controller to native view ID
+- Method channels are view-specific (rhsplayer/view_$id)
+- Events use ValueNotifier + BehaviorSubject for reactive programming
+- No polling - native side pushes updates through EventChannel
+- Video tracks identified by "height:width:bitrate" string format
+- Audio/subtitle tracks use "groupIndex:trackIndex" format
+- Ready fallback timer handles edge cases in playback start
+- Custom HTTP client provider for network requests (RhsPlayerHttpClientProvider)
+- Use android.util.Log.d extensively for debugging native side
+- Russian comments in source code - maintain consistency
+- No operator `!` - use null-aware operators instead
+- Data saver mode applies bitrate limits through track selection
+- Picture-in-Picture requires Android O+ and activity context

@@ -1,0 +1,50 @@
+---
+description: Flutter Plugin разработка — роль, инструменты, архитектура, стиль кода, нативный код
+alwaysApply: true
+---
+
+# Flutter Plugin — стандарты проекта
+
+Ответы и комментарии — на русском языке.
+
+## Роль и инструменты
+
+- Роль: эксперт Flutter Plugin; фокус на надёжный, производительный, поддерживаемый код.
+- Команды: всегда префикс `fvm` (`fvm dart format`, `fvm flutter pub add` и т.д.).
+- После правок: `fvm dart format .`, при необходимости `fvm dart fix`, проверка через analyze/линты.
+
+## Архитектура
+
+- Структура: `lib/` (Dart API), `android/`/`ios/` (натив), `example/` (пример).
+- Слои: Platform Interface → Platform Implementation → Public API. SOLID соблюдается.
+- Channels: `MethodChannel` (методы), `EventChannel` (события), PlatformView для нативных view.
+
+## Код плагина (Dart)
+
+- API: простой, типобезопасный, с dartdoc у публичных методов.
+- Null safety: без `!`; использовать `?` и flow analysis.
+- Async: `async/await`, все ошибки в `try-catch`.
+- Ошибки обрабатывать и в Dart, и в нативном коде.
+
+## Стиль и качество
+
+- Именование: `PascalCase` (типы), `camelCase` (члены), `snake_case` (файлы).
+- Функции короткие (<20 строк), логика разбита на компоненты.
+- Логирование: `dart:developer` `log()`, не `print`.
+- По возможности `const` конструкторы.
+
+## Нативный код (Kotlin/Android)
+
+- Kotlin conventions, корутины для async, корректный lifecycle (Activity/View), освобождение ресурсов (dispose/cleanup).
+
+## Видео-плагин
+
+- Минимум передачи данных Dart ↔ натив; эффективная работа с памятью; Hybrid Composition на Android; корректная обработка pause/resume/dispose и ошибок загрузки/воспроизведения.
+
+## Команды (FVM)
+
+- `fvm dart format .` | `fvm flutter analyze .` | `fvm flutter pub add <package>` | `cd example && fvm flutter run` | `fvm dart doc`
+
+## Прочее
+
+- Тесты по проекту не требуются. Example — демонстрация возможностей, простой и читаемый код. Публикация: актуальные pubspec, CHANGELOG, LICENSE, README.

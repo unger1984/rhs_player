@@ -48,8 +48,14 @@ class ProgressSlider extends StatelessWidget {
               return Container(
                 decoration: hasFocus
                     ? BoxDecoration(
-                        border: Border.all(color: Colors.blue, width: 2),
                         borderRadius: BorderRadius.circular(4),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.blue.withOpacity(0.8),
+                            blurRadius: 12,
+                            spreadRadius: 2,
+                          ),
+                        ],
                       )
                     : null,
                 child: Row(

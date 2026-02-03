@@ -21,11 +21,13 @@ class _RecommendedCarouselWidget extends StatefulWidget {
   final FocusNode focusNode;
   final List<RecommendedCarouselItem> items;
   final void Function(int index)? onItemSelected;
+  final int initialScrollIndex;
 
   const _RecommendedCarouselWidget({
     required this.focusNode,
     required this.items,
     this.onItemSelected,
+    this.initialScrollIndex = 0,
   });
 
   @override
@@ -36,7 +38,7 @@ class _RecommendedCarouselWidget extends StatefulWidget {
 class _RecommendedCarouselWidgetState
     extends State<_RecommendedCarouselWidget> {
   late ScrollController _scrollController;
-  int _scrollIndex = 0;
+  late int _scrollIndex;
 
   double _cardWidth = 388;
   double _cardHeight = 220;
@@ -46,6 +48,32 @@ class _RecommendedCarouselWidgetState
   void initState() {
     super.initState();
     _scrollController = ScrollController();
+    final maxIndex = widget.items.isEmpty ? 0 : widget.items.length - 1;
+    _scrollIndex = widget.initialScrollIndex.clamp(0, maxIndex);
+    widget.focusNode.addListener(_onFocusChange);
+  }
+
+  @override
+  void dispose() {
+    widget.focusNode.removeListener(_onFocusChange);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onFocusChange() {
+    if (!widget.focusNode.hasFocus) {
+      widget.onItemSelected?.call(_scrollIndex);
+    }
+  }
+
+  bool _savedIndexScrolled = false;
+
+  void _scrollToSavedIndexOnce() {
+    if (_savedIndexScrolled || !_scrollController.hasClients) return;
+    _savedIndexScrolled = true;
+    final offset = _offsetForIndex(_scrollIndex);
+    final position = _scrollController.position;
+    _scrollController.jumpTo(offset.clamp(0.0, position.maxScrollExtent));
   }
 
   @override
@@ -60,12 +88,9 @@ class _RecommendedCarouselWidgetState
       _cardHeight = h;
       _gap = g;
     }
-  }
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _scrollToSavedIndexOnce(),
+    );
   }
 
   /// Смещение прокрутки: активный слайд всегда начинается в 120.w от левого края.
@@ -85,7 +110,6 @@ class _RecommendedCarouselWidgetState
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
     );
-    widget.onItemSelected?.call(index);
   }
 
   @override
@@ -321,18 +345,30 @@ class _AnimatedRecommendedRowContentState
 class RecommendedCarouselRow extends BaseControlRow {
   final List<RecommendedCarouselItem> carouselItems;
   final void Function(int index)? onItemSelected;
+  final int initialScrollIndex;
 
   RecommendedCarouselRow({
     required super.id,
     required super.index,
     required this.carouselItems,
     this.onItemSelected,
-  }) : super(items: [_createCarouselItem(id, carouselItems, onItemSelected)]);
+    this.initialScrollIndex = 0,
+  }) : super(
+         items: [
+           _createCarouselItem(
+             id,
+             carouselItems,
+             onItemSelected,
+             initialScrollIndex,
+           ),
+         ],
+       );
 
   static FocusableItem _createCarouselItem(
     String rowId,
     List<RecommendedCarouselItem> carouselItems,
     void Function(int index)? onItemSelected,
+    int initialScrollIndex,
   ) {
     return CustomWidgetItem(
       id: '${rowId}_carousel',
@@ -354,6 +390,7 @@ class RecommendedCarouselRow extends BaseControlRow {
           focusNode: focusNode,
           items: carouselItems,
           onItemSelected: onItemSelected,
+          initialScrollIndex: initialScrollIndex,
         ),
       ),
     );

@@ -20,6 +20,8 @@ class _PlayerScreenContent extends StatefulWidget {
 }
 
 class _PlayerScreenContentState extends State<_PlayerScreenContent> {
+  int _recommendedCarouselIndex = 0;
+
   final media0 = RhsMediaSource(
     "https://user67561.nowcdn.co/done/widevine_playready/06bff34bc0fed90c578b72d72905680ae9b29e29/index.mpd",
     drm: const RhsDrmConfig(
@@ -109,6 +111,10 @@ class _PlayerScreenContentState extends State<_PlayerScreenContent> {
             overlay: VideoControls(
               controller: controller,
               onSwitchSource: _handleChange,
+              initialRecommendedIndex: _recommendedCarouselIndex,
+              onRecommendedScrollIndexChanged: (index) {
+                setState(() => _recommendedCarouselIndex = index);
+              },
             ),
           ),
         ),

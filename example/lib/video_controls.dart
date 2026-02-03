@@ -19,12 +19,16 @@ class VideoControls extends StatelessWidget {
   final RhsPlayerController controller;
   final VoidCallback onSwitchSource;
   final VoidCallback? onFavoritePressed;
+  final int initialRecommendedIndex;
+  final void Function(int index)? onRecommendedScrollIndexChanged;
 
   const VideoControls({
     super.key,
     required this.controller,
     required this.onSwitchSource,
     this.onFavoritePressed,
+    this.initialRecommendedIndex = 0,
+    this.onRecommendedScrollIndexChanged,
   });
 
   @override
@@ -150,7 +154,8 @@ class VideoControls extends StatelessWidget {
           id: 'recommended_row',
           index: 3,
           carouselItems: _recommendedItems,
-          onItemSelected: (index) {},
+          initialScrollIndex: initialRecommendedIndex,
+          onItemSelected: onRecommendedScrollIndexChanged,
         ),
       ],
     );

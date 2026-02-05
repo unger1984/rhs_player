@@ -11,10 +11,15 @@ class StartPage extends StatefulWidget {
 }
 
 class _StartPageState extends State<StartPage> {
-  void _openPlayer() {
-    Navigator.of(
+  bool _loading = false;
+
+  Future<void> _openPlayer() async {
+    if (_loading) return;
+    setState(() => _loading = true);
+    await Navigator.of(
       context,
-    ).push(MaterialPageRoute<void>(builder: (_) => const PlayerPage()));
+    ).push<void>(MaterialPageRoute<void>(builder: (_) => const PlayerPage()));
+    if (mounted) setState(() => _loading = false);
   }
 
   void _closeApp() {
@@ -23,26 +28,37 @@ class _StartPageState extends State<StartPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Тест плеера')),
-      body: Center(
-        child: FocusTraversalGroup(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ElevatedButton(
-                onPressed: _openPlayer,
-                child: const Text('Запустить плеер'),
+    return Stack(
+      children: [
+        Scaffold(
+          appBar: AppBar(title: const Text('Тест плеера')),
+          body: Center(
+            child: FocusTraversalGroup(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ElevatedButton(
+                    onPressed: _loading ? null : _openPlayer,
+                    child: const Text('Запустить плеер'),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: _loading ? null : _closeApp,
+                    child: const Text('Закрыть приложение'),
+                  ),
+                ],
               ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: _closeApp,
-                child: const Text('Закрыть приложение'),
-              ),
-            ],
+            ),
           ),
         ),
-      ),
+        if (_loading)
+          Container(
+            color: Colors.black54,
+            child: const Center(
+              child: CircularProgressIndicator(color: Colors.white),
+            ),
+          ),
+      ],
     );
   }
 }

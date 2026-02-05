@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -217,7 +218,7 @@ class _VideoControlsState extends State<VideoControls> {
         key == LogicalKeyboardKey.enter ||
         key == LogicalKeyboardKey.arrowUp ||
         key == LogicalKeyboardKey.arrowDown) {
-      debugPrint('Priority key handler: $key pressed, showing controls');
+      log('Priority key handler: $key pressed, showing controls');
       _stateMachine.handleEvent(const ShowControlsEvent(resetFocus: true));
       return true;
     }
@@ -295,7 +296,7 @@ class _VideoControlsState extends State<VideoControls> {
   /// Вызывается из onStateChanged callback State Machine.
   /// Фокус при показе контролов восстанавливается в билдере по _focusedIdBeforeHide ?? initialFocusId.
   void _handleStateTransition(ControlsState oldState, ControlsState newState) {
-    debugPrint('State transition: $oldState → $newState');
+    log('State transition: $oldState → $newState');
   }
 
   // ==================== Публичные методы управления контролами ====================
@@ -317,13 +318,13 @@ class _VideoControlsState extends State<VideoControls> {
 
   /// Меню открыто (обёртка для MenuOpenedEvent).
   void _onMenuOpened() {
-    debugPrint('VideoControls: menu opened');
+    log('VideoControls: menu opened');
     _stateMachine.handleEvent(const MenuOpenedEvent());
   }
 
   /// Меню закрыто (обёртка для MenuClosedEvent).
   void _onMenuClosed() {
-    debugPrint('VideoControls: menu closed');
+    log('VideoControls: menu closed');
     _stateMachine.handleEvent(const MenuClosedEvent());
   }
 
@@ -503,7 +504,7 @@ class _VideoControlsState extends State<VideoControls> {
                                   is! ControlsHiddenState &&
                               _stateMachine.currentState
                                   is! SeekingOverlayState;
-                          debugPrint(
+                          log(
                             'play_pause keyHandler: controlsVisible=$isVisible',
                           );
                           if (isVisible) {

@@ -1,6 +1,5 @@
 import 'dart:developer' as developer;
 
-import 'package:flutter/material.dart';
 import 'package:rhs_player/rhs_player.dart';
 import 'package:rhs_player_example/entities/media/model/media_item.dart';
 import 'package:rhs_player_example/shared/api/media_repository.dart';
@@ -78,7 +77,7 @@ class PlayerState {
       _mediaItems = await _repository.loadMediaItems();
 
       if (_mediaItems.isEmpty) {
-        debugPrint('PlayerState: No media items loaded');
+        developer.log('PlayerState: No media items loaded');
         return;
       }
 
@@ -89,7 +88,7 @@ class PlayerState {
 
       onStateChanged?.call();
     } catch (e, st) {
-      debugPrint('PlayerState: Failed to load media items: $e\n$st');
+      developer.log('PlayerState: Failed to load media items: $e\n$st');
     }
   }
 

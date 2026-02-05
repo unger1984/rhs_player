@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -52,12 +54,12 @@ class _SoundtrackMenuDialogState extends State<_SoundtrackMenuDialog> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
-          debugPrint(
+          log(
             'SoundtrackMenu: requesting focus on menu, hasFocus before: ${_focusNode.hasFocus}',
           );
           _focusNode.requestFocus();
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            debugPrint(
+            log(
               'SoundtrackMenu: hasFocus after requestFocus: ${_focusNode.hasFocus}',
             );
           });
@@ -75,7 +77,7 @@ class _SoundtrackMenuDialogState extends State<_SoundtrackMenuDialog> {
 
   KeyEventResult _handleKey(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
-    debugPrint(
+    log(
       'SoundtrackMenu: handleKey ${event.logicalKey}, current index: $_focusedIndex',
     );
     switch (event.logicalKey) {

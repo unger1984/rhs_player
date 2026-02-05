@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -47,12 +49,12 @@ class _QualityMenuDialogState extends State<_QualityMenuDialog> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
-          debugPrint(
+          log(
             'QualityMenu: requesting focus on menu, hasFocus before: ${_focusNode.hasFocus}',
           );
           _focusNode.requestFocus();
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            debugPrint(
+            log(
               'QualityMenu: hasFocus after requestFocus: ${_focusNode.hasFocus}',
             );
           });
@@ -72,7 +74,7 @@ class _QualityMenuDialogState extends State<_QualityMenuDialog> {
     if (event is! KeyDownEvent) {
       return KeyEventResult.ignored;
     }
-    debugPrint(
+    log(
       'QualityMenu: handleKey ${event.logicalKey}, current index: $_focusedIndex',
     );
     switch (event.logicalKey) {

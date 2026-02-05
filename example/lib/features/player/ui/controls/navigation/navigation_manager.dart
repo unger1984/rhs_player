@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:rhs_player_example/features/player/ui/controls/core/control_row.dart';
@@ -93,7 +95,7 @@ class NavigationManager {
     // Это предотвращает обработку OK кнопкой play/pause когда контролы скрыты
     if (!controlsVisible) {
       final key = event.logicalKey;
-      debugPrint(
+      log(
         'NavigationManager: controlsVisible=false, key=$key, skipping element handler',
       );
       // Навигационные клавиши обрабатываются на уровне билдера

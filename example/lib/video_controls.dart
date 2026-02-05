@@ -57,6 +57,9 @@ class _VideoControlsState extends State<VideoControls> {
   /// Колбэки навигации из билдера (родительский context не видит VideoControlsNavigation).
   NavCallbacks? _nav;
 
+  /// Key ряда карусели для определения клика вне карусели (свернуть при клике мимо).
+  final GlobalKey _carouselRowKey = GlobalKey();
+
   /// Видимость контролов (верхняя/нижняя группа с анимацией).
   bool _controlsVisible = true;
 
@@ -208,6 +211,11 @@ class _VideoControlsState extends State<VideoControls> {
         if (status is RhsPlayerStatusPaused) return;
         // Не скрывать контролы, если открыто меню качества/саундтрека
         if (_isMenuOpen) return;
+        // Не скрывать, пока фокус на карусели — перезапускаем таймер
+        if (_nav?.getFocusedItemId() == 'recommended_row_carousel') {
+          _resetHideTimer();
+          return;
+        }
         _hideControls();
       });
     }
@@ -269,6 +277,7 @@ class _VideoControlsState extends State<VideoControls> {
           onSeekBackward: _seekBackward,
           onSeekForward: _seekForward,
           onHideControlsWhenDownFromLastRow: _hideControls,
+          carouselRowKey: _carouselRowKey,
           rows: [
             TopBarRow(
               id: 'top_bar_row',
@@ -417,6 +426,7 @@ class _VideoControlsState extends State<VideoControls> {
                   : [],
             ),
             RecommendedCarouselRow(
+              key: _carouselRowKey,
               id: 'recommended_row',
               index: 3,
               carouselItems: widget.recommendedItems,

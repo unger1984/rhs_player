@@ -48,6 +48,7 @@ typedef NavCallbacks = ({
   void Function(String id) requestFocusOnId,
   void Function(String id) scheduleFocusRestore,
   void Function(FocusNode?) registerOverlayFocusNode,
+  String? Function() getFocusedItemId,
 });
 
 /// Билдер для декларативного построения системы управления
@@ -84,6 +85,9 @@ class VideoControlsBuilder extends StatefulWidget {
   /// Вызывается при нажатии Вниз, когда фокус на последнем ряду (карусель) — скрыть контролы.
   final VoidCallback? onHideControlsWhenDownFromLastRow;
 
+  /// Key ряда карусели (для определения «клик вне карусели» в развёрнутом режиме).
+  final GlobalKey? carouselRowKey;
+
   const VideoControlsBuilder({
     super.key,
     required this.rows,
@@ -102,6 +106,7 @@ class VideoControlsBuilder extends StatefulWidget {
     this.onSeekBackward,
     this.onSeekForward,
     this.onHideControlsWhenDownFromLastRow,
+    this.carouselRowKey,
   });
 
   @override
@@ -134,6 +139,7 @@ class _VideoControlsBuilderState extends State<VideoControlsBuilder> {
         scheduleFocusRestore: (id) =>
             setState(() => _pendingFocusRestoreId = id),
         registerOverlayFocusNode: _navigationManager.setOverlayFocusNode,
+        getFocusedItemId: _navigationManager.getFocusedItemId,
       ));
     });
   }
@@ -198,106 +204,137 @@ class _VideoControlsBuilderState extends State<VideoControlsBuilder> {
       requestInitialFocus: () => _navigationManager.requestInitialFocus(),
       scheduleFocusRestore: (id) => setState(() => _pendingFocusRestoreId = id),
       requestFocusOnId: (id) => _navigationManager.requestFocusOnId(id),
-      child: ExcludeFocus(
-        excluding: !widget.controlsVisible,
-        child: FocusScope(
-          child: Focus(
-            focusNode: _rootFocusNode,
-            onKeyEvent: (FocusNode node, KeyEvent event) {
-              if (event is KeyDownEvent) {
-                final key = event.logicalKey;
-                final primaryFocus = FocusManager.instance.primaryFocus;
-                debugPrint(
-                  'VideoControlsBuilder onKeyEvent: key=$key, controlsVisible=${widget.controlsVisible}, rootHasFocus=${_rootFocusNode.hasFocus}, primaryFocus=${primaryFocus?.debugLabel}',
-                );
-                if (key == LogicalKeyboardKey.info ||
-                    key == LogicalKeyboardKey.contextMenu) {
-                  widget.onToggleVisibilityRequested?.call();
-                  return KeyEventResult.handled;
-                }
-                // Когда контролы скрыты: влево/вправо — перемотка, вверх/вниз/OK — показать контролы
-                if (!widget.controlsVisible) {
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: () {
+          widget.onControlsInteraction?.call();
+        },
+        onTapDown: (details) {
+          widget.onControlsInteraction?.call();
+          if (!widget.controlsVisible) return;
+          if (widget.rows.length < 3) return;
+          final carouselItemId = widget.rows.last.items.first.id;
+          if (_navigationManager.getFocusedItemId() != carouselItemId) return;
+          final key = widget.carouselRowKey;
+          if (key?.currentContext == null) return;
+          final box = key!.currentContext!.findRenderObject() as RenderBox?;
+          if (box == null) return;
+          final local = box.globalToLocal(details.globalPosition);
+          if (!box.size.contains(local)) {
+            _navigationManager.requestInitialFocus();
+          }
+        },
+        onVerticalDragEnd: (details) {
+          if (details.primaryVelocity != null &&
+              details.primaryVelocity! < -500 &&
+              widget.controlsVisible &&
+              widget.rows.length > 2) {
+            final lastRow = widget.rows.last;
+            if (lastRow.items.isNotEmpty) {
+              _navigationManager.requestFocusOnId(lastRow.items.first.id);
+            }
+          }
+        },
+        child: ExcludeFocus(
+          excluding: !widget.controlsVisible,
+          child: FocusScope(
+            child: Focus(
+              focusNode: _rootFocusNode,
+              onKeyEvent: (FocusNode node, KeyEvent event) {
+                if (event is KeyDownEvent) {
+                  final key = event.logicalKey;
+                  final primaryFocus = FocusManager.instance.primaryFocus;
                   debugPrint(
-                    'VideoControlsBuilder: key=$key, controlsVisible=false, hasFocus=${_rootFocusNode.hasFocus}',
+                    'VideoControlsBuilder onKeyEvent: key=$key, controlsVisible=${widget.controlsVisible}, rootHasFocus=${_rootFocusNode.hasFocus}, primaryFocus=${primaryFocus?.debugLabel}',
                   );
-                  switch (key) {
-                    case LogicalKeyboardKey.arrowLeft:
-                      widget.onSeekBackward?.call();
-                      return KeyEventResult.handled;
-                    case LogicalKeyboardKey.arrowRight:
-                      widget.onSeekForward?.call();
-                      return KeyEventResult.handled;
-                    case LogicalKeyboardKey.arrowUp:
-                    case LogicalKeyboardKey.arrowDown:
-                      widget.onControlsInteraction?.call();
-                      return KeyEventResult.handled;
-                    case LogicalKeyboardKey.select:
-                    case LogicalKeyboardKey.enter:
-                      debugPrint(
-                        'VideoControlsBuilder: OK pressed, showing controls',
-                      );
-                      // Показать контролы и поставить фокус на initial (play/pause)
-                      setState(
-                        () => _focusedIdBeforeHide = widget.initialFocusId,
-                      );
-                      widget.onControlsInteraction?.call();
-                      return KeyEventResult.handled;
-                    default:
-                      break;
+                  if (key == LogicalKeyboardKey.info ||
+                      key == LogicalKeyboardKey.contextMenu) {
+                    widget.onToggleVisibilityRequested?.call();
+                    return KeyEventResult.handled;
                   }
-                } else {
-                  widget.onControlsInteraction?.call();
+                  // Когда контролы скрыты: влево/вправо — перемотка, вверх/вниз/OK — показать контролы
+                  if (!widget.controlsVisible) {
+                    debugPrint(
+                      'VideoControlsBuilder: key=$key, controlsVisible=false, hasFocus=${_rootFocusNode.hasFocus}',
+                    );
+                    switch (key) {
+                      case LogicalKeyboardKey.arrowLeft:
+                        widget.onSeekBackward?.call();
+                        return KeyEventResult.handled;
+                      case LogicalKeyboardKey.arrowRight:
+                        widget.onSeekForward?.call();
+                        return KeyEventResult.handled;
+                      case LogicalKeyboardKey.arrowUp:
+                      case LogicalKeyboardKey.arrowDown:
+                        widget.onControlsInteraction?.call();
+                        return KeyEventResult.handled;
+                      case LogicalKeyboardKey.select:
+                      case LogicalKeyboardKey.enter:
+                        debugPrint(
+                          'VideoControlsBuilder: OK pressed, showing controls',
+                        );
+                        // Показать контролы и поставить фокус на initial (play/pause)
+                        setState(
+                          () => _focusedIdBeforeHide = widget.initialFocusId,
+                        );
+                        widget.onControlsInteraction?.call();
+                        return KeyEventResult.handled;
+                      default:
+                        break;
+                    }
+                  } else {
+                    widget.onControlsInteraction?.call();
+                  }
                 }
-              }
-              return _navigationManager.handleKey(
-                node,
-                event,
-                controlsVisible: widget.controlsVisible,
-              );
-            },
-            child: Container(
-              color: widget.backgroundColor ?? Colors.black.withAlpha(128),
-              padding: widget.padding,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.start,
-                crossAxisAlignment: widget.crossAxisAlignment,
-                children: [
-                  if (widget.rows.isNotEmpty) ...[
-                    AnimatedSlide(
-                      offset: Offset(0, widget.controlsVisible ? 0 : -1),
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeInOut,
-                      child: widget.rows.first.build(context),
-                    ),
-                    const Spacer(),
-                    // Слайдер прогресса только при открытых контролах или перемотке; выезжает/заезжает снизу.
-                    if (widget.showProgressSlider && widget.rows.length > 1)
+                return _navigationManager.handleKey(
+                  node,
+                  event,
+                  controlsVisible: widget.controlsVisible,
+                );
+              },
+              child: Container(
+                color: widget.backgroundColor ?? Colors.transparent,
+                padding: widget.padding,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  crossAxisAlignment: widget.crossAxisAlignment,
+                  children: [
+                    if (widget.rows.isNotEmpty) ...[
                       AnimatedSlide(
-                        offset: Offset.zero,
+                        offset: Offset(0, widget.controlsVisible ? 0 : -1),
                         duration: const Duration(milliseconds: 300),
                         curve: Curves.easeInOut,
-                        child: widget.rows[1].build(context),
+                        child: widget.rows.first.build(context),
                       ),
-                    if (widget.rows.length > 2) ...[
-                      SizedBox(height: widget.spacing.h),
-                      AnimatedSlide(
-                        offset: Offset(0, widget.controlsVisible ? 0 : 1),
-                        duration: const Duration(milliseconds: 300),
-                        curve: Curves.easeInOut,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: widget.crossAxisAlignment,
-                          children: [
-                            for (var i = 2; i < widget.rows.length; i++) ...[
-                              if (i > 2) SizedBox(height: widget.spacing.h),
-                              widget.rows[i].build(context),
-                            ],
-                          ],
+                      const Spacer(),
+                      if (widget.showProgressSlider && widget.rows.length > 1)
+                        AnimatedSlide(
+                          offset: Offset.zero,
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeInOut,
+                          child: widget.rows[1].build(context),
                         ),
-                      ),
+                      if (widget.rows.length > 2) ...[
+                        SizedBox(height: widget.spacing.h),
+                        AnimatedSlide(
+                          offset: Offset(0, widget.controlsVisible ? 0 : 1),
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeInOut,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: widget.crossAxisAlignment,
+                            children: [
+                              for (var i = 2; i < widget.rows.length; i++) ...[
+                                if (i > 2) SizedBox(height: widget.spacing.h),
+                                widget.rows[i].build(context),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
                     ],
                   ],
-                ],
+                ),
               ),
             ),
           ),

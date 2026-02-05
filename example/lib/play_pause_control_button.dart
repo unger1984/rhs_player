@@ -68,7 +68,10 @@ class _PlayPauseControlButtonState extends State<PlayPauseControlButton> {
         onExit: (_) => setState(() => _hovered = false),
         cursor: SystemMouseCursors.click,
         child: GestureDetector(
-          onTapDown: (_) => setState(() => _pressed = true),
+          onTapDown: (_) {
+            widget.focusNode.requestFocus();
+            setState(() => _pressed = true);
+          },
           onTapUp: (_) => setState(() => _pressed = false),
           onTapCancel: () => setState(() => _pressed = false),
           onTap: widget.onPressed,

@@ -135,6 +135,7 @@ class _ControlButtonState extends State<ControlButton> {
         child: GestureDetector(
           onTapDown: (_) {
             if (!widget.enabled) return;
+            widget.focusNode.requestFocus();
             setState(() => _pressed = true);
             if (widget.repeatWhileHeld) {
               _startRepeat();

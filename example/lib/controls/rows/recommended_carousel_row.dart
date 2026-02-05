@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -31,6 +32,7 @@ class _RecommendedCarouselWidget extends StatefulWidget {
   final void Function(int index)? onItemSelected;
   final void Function(RecommendedCarouselItem item)? onItemActivated;
   final int initialScrollIndex;
+  final bool isPeekMode;
 
   const _RecommendedCarouselWidget({
     required this.focusNode,
@@ -38,6 +40,7 @@ class _RecommendedCarouselWidget extends StatefulWidget {
     this.onItemSelected,
     this.onItemActivated,
     this.initialScrollIndex = 0,
+    this.isPeekMode = false,
   });
 
   @override
@@ -54,10 +57,13 @@ class _RecommendedCarouselWidgetState
   double _cardHeight = 220;
   double _gap = 40;
 
+  bool _wasScrolling = false;
+
   @override
   void initState() {
     super.initState();
     _scrollController = ScrollController();
+    _scrollController.addListener(_onScroll);
     final maxIndex = widget.items.isEmpty ? 0 : widget.items.length - 1;
     _scrollIndex = widget.initialScrollIndex.clamp(0, maxIndex);
     widget.focusNode.addListener(_onFocusChange);
@@ -66,8 +72,41 @@ class _RecommendedCarouselWidgetState
   @override
   void dispose() {
     widget.focusNode.removeListener(_onFocusChange);
+    _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients || widget.items.isEmpty) return;
+    final position = _scrollController.position;
+    final isScrolling = position.isScrollingNotifier.value;
+    if (_wasScrolling && !isScrolling) {
+      _wasScrolling = false;
+      _snapToNearestIndex();
+    } else if (isScrolling) {
+      _wasScrolling = true;
+    }
+  }
+
+  void _snapToNearestIndex() {
+    if (!_scrollController.hasClients || widget.items.isEmpty) return;
+    final offset = _scrollController.offset;
+    final step = _cardWidth + _gap;
+    final nearest = (offset / step).round().clamp(0, widget.items.length - 1);
+    if (nearest != _scrollIndex) {
+      _scrollToIndex(nearest);
+    } else {
+      final targetOffset = _offsetForIndex(nearest);
+      if ((offset - targetOffset).abs() > 1) {
+        _scrollController.animateTo(
+          targetOffset.clamp(0.0, _scrollController.position.maxScrollExtent),
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+        );
+        setState(() => _scrollIndex = nearest);
+      }
+    }
   }
 
   void _onFocusChange() {
@@ -89,7 +128,6 @@ class _RecommendedCarouselWidgetState
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Обновляем только при изменении (AGENTS.md: designSize 1920×1080, .w/.h/.r/.sp).
     final w = 388.w;
     final h = 220.w;
     final g = 40.w;
@@ -103,7 +141,6 @@ class _RecommendedCarouselWidgetState
     );
   }
 
-  /// Смещение прокрутки: активный слайд всегда начинается в 120.w от левого края.
   double _offsetForIndex(int index) {
     return index * (_cardWidth + _gap);
   }
@@ -196,6 +233,26 @@ class _RecommendedCarouselWidgetState
                           width: _cardWidth,
                           height: _cardHeight,
                           showFocusBorder: isFirstVisible && hasFocus,
+                          index: index,
+                          onWheel: (event) {
+                            if (event.scrollDelta.dy > 0 &&
+                                _scrollIndex < widget.items.length - 1) {
+                              _scrollToIndex(_scrollIndex + 1);
+                            } else if (event.scrollDelta.dy < 0 &&
+                                _scrollIndex > 0) {
+                              _scrollToIndex(_scrollIndex - 1);
+                            }
+                          },
+                          onTap: () {
+                            widget.focusNode.requestFocus();
+                            if (widget.isPeekMode) return;
+                            _scrollToIndex(index);
+                            if (index >= 0 &&
+                                index < widget.items.length &&
+                                widget.items[index].mediaSource != null) {
+                              widget.onItemActivated?.call(widget.items[index]);
+                            }
+                          },
                         ),
                       );
                     },
@@ -217,6 +274,9 @@ class _CarouselCard extends StatelessWidget {
   final double width;
   final double height;
   final bool showFocusBorder;
+  final int index;
+  final void Function(PointerScrollEvent event)? onWheel;
+  final VoidCallback? onTap;
 
   const _CarouselCard({
     required this.title,
@@ -224,50 +284,68 @@ class _CarouselCard extends StatelessWidget {
     required this.width,
     required this.height,
     required this.showFocusBorder,
+    required this.index,
+    this.onWheel,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 150),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12.r),
-        border: showFocusBorder
-            ? Border.all(color: const Color(0xFFB3E5FC), width: 3.w)
-            : null,
-        boxShadow: showFocusBorder
-            ? [
-                BoxShadow(
-                  color: const Color(0xFFB3E5FC).withValues(alpha: 0.5),
-                  blurRadius: 12.r,
-                  spreadRadius: 2.r,
+    final content = GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12.r),
+          border: showFocusBorder
+              ? Border.all(color: const Color(0xFFB3E5FC), width: 3.w)
+              : null,
+          boxShadow: showFocusBorder
+              ? [
+                  BoxShadow(
+                    color: const Color(0xFFB3E5FC).withValues(alpha: 0.5),
+                    blurRadius: 12.r,
+                    spreadRadius: 2.r,
+                  ),
+                ]
+              : null,
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12.r),
+          child: SizedBox(
+            width: width,
+            height: height,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(child: image),
+                Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 12.w,
+                    vertical: 8.h,
+                  ),
+                  color: const Color(0xFF201B2E),
+                  child: Text(
+                    title,
+                    style: TextStyle(color: Colors.white, fontSize: 14.sp),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-              ]
-            : null,
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12.r),
-        child: SizedBox(
-          width: width,
-          height: height,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(child: image),
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
-                color: const Color(0xFF201B2E),
-                child: Text(
-                  title,
-                  style: TextStyle(color: Colors.white, fontSize: 14.sp),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
+    );
+    if (onWheel == null) return content;
+    return Listener(
+      onPointerSignal: (event) {
+        if (event is PointerScrollEvent && event.scrollDelta.dy != 0) {
+          onWheel!(event);
+        }
+      },
+      child: content,
     );
   }
 }
@@ -275,11 +353,11 @@ class _CarouselCard extends StatelessWidget {
 /// Контент ряда с анимацией высоты при появлении фокуса.
 class _AnimatedRecommendedRowContent extends StatefulWidget {
   final FocusNode focusNode;
-  final Widget child;
+  final Widget Function(bool isPeekMode) childBuilder;
 
   const _AnimatedRecommendedRowContent({
     required this.focusNode,
-    required this.child,
+    required this.childBuilder,
   });
 
   @override
@@ -332,12 +410,14 @@ class _AnimatedRecommendedRowContentState
   Widget build(BuildContext context) {
     final expandedHeight = _expandedHeight.h;
     final visibleHeight = _hasFocus ? expandedHeight : _peekHeight(context);
+    final isPeekMode = !_hasFocus;
+    final carousel = widget.childBuilder(isPeekMode);
     final contentChild = _hasFocus
         ? Padding(
             padding: EdgeInsets.only(bottom: _bottomPadding(context)),
-            child: widget.child,
+            child: carousel,
           )
-        : widget.child;
+        : carousel;
     return AnimatedSize(
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
@@ -361,12 +441,14 @@ class _AnimatedRecommendedRowContentState
 /// При переходе фокуса вниз ряд выезжает снизу, сдвигая кнопки и прогресс выше.
 /// Фокус всегда на крайнем левом слайде; стрелка вправо — слайд уезжает влево, фокус на новом слайде.
 class RecommendedCarouselRow extends BaseControlRow {
+  final Key? key;
   final List<RecommendedCarouselItem> carouselItems;
   final void Function(int index)? onItemSelected;
   final void Function(RecommendedCarouselItem item)? onItemActivated;
   final int initialScrollIndex;
 
   RecommendedCarouselRow({
+    this.key,
     required super.id,
     required super.index,
     required this.carouselItems,
@@ -410,12 +492,13 @@ class RecommendedCarouselRow extends BaseControlRow {
       },
       builder: (focusNode) => _AnimatedRecommendedRowContent(
         focusNode: focusNode,
-        child: _RecommendedCarouselWidget(
+        childBuilder: (isPeekMode) => _RecommendedCarouselWidget(
           focusNode: focusNode,
           items: carouselItems,
           onItemSelected: onItemSelected,
           onItemActivated: onItemActivated,
           initialScrollIndex: initialScrollIndex,
+          isPeekMode: isPeekMode,
         ),
       ),
     );
@@ -423,6 +506,7 @@ class RecommendedCarouselRow extends BaseControlRow {
 
   @override
   Widget build(BuildContext context) {
-    return items.first.build(context);
+    final child = items.first.build(context);
+    return key != null ? KeyedSubtree(key: key, child: child) : child;
   }
 }

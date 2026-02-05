@@ -6,6 +6,8 @@ abstract class AppDurations {
   static const seekingOverlay = Duration(
     seconds: 2,
   ); // Отображение слайдера при перемотке
+  /// Время показа подсказки «Для выхода нажмите Назад ещё раз» при скрытых контролах.
+  static const exitConfirmOverlay = Duration(seconds: 3);
 
   // Интервалы повтора перемотки при удержании
   static const repeatInterval = Duration(

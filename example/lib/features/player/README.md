@@ -10,8 +10,7 @@
 - **UI** — визуальное представление и взаимодействие с пользователем
   - PlayerView — главный виджет плеера
   - Actions — Intent/Action система для клавиатурных шорткатов
-  - Controls — система управл
-  ения контролами (**см. [Controls README](ui/controls/README.md)**)
+  - Controls — система управления контролами (**см. [Controls README](ui/controls/README.md)**)
 
 ## Структура
 
@@ -241,18 +240,19 @@ Widget build(BuildContext context) {
 
 ### Обработка кнопки Back
 
+- **UI-кнопка «Назад»** (в верхней панели): всегда выход с экрана (`onBackButtonPressed`).
+- **Аппаратная кнопка Back** (пульт/хардвар):
+  - Контролы видны, карусель развёрнута → сворачивание карусели в режим peek.
+  - Контролы видны (peek и др.) → скрытие контролов.
+  - Контролы скрыты → показ подсказки «Для выхода нажмите Назад ещё раз» на настраиваемое время; повторное нажатие Back в этот момент выходит. Длительность задаётся параметром `PlayerPage.exitConfirmDuration` (по умолчанию из `AppDurations.exitConfirmOverlay`).
+
 ```dart
 PlayerView(
   controller: _playerState.controller,
   recommendedItems: _playerState.getRecommendedItems(),
   onItemSelected: _playerState.playMedia,
-  registerBackHandler: (handler) {
-    _playerState.backHandler = handler;
-  },
-  onBackButtonPressed: () {
-    // Обработка Back на уровне страницы
-    Navigator.of(context).maybePop();
-  },
+  registerBackHandler: (handler) => _backHandler = handler,
+  onBackButtonPressed: _requestPop,
 )
 ```
 

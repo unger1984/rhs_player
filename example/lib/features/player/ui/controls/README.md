@@ -116,6 +116,8 @@ if (state is ControlsVisiblePeekState) {
 - **AutoHideTimerExpiredEvent** — истёк таймер автоскрытия
 - **SeekingOverlayTimerExpiredEvent** — истёк таймер слайдера
 
+**Аппаратная кнопка Back** (через `registerBackHandler`): при **ControlsVisibleExpandedState** — сворачивание карусели в peek (`FocusChangedEvent(null)`); при остальных видимых состояниях — `HideControlsEvent`; при скрытых контролах обработчик возвращает `false`, страница показывает подсказку «Назад ещё раз» и по второму нажатию выходит.
+
 ### Конфигурация видимости
 
 Каждое состояние возвращает `ControlsVisibilityConfig`:

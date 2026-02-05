@@ -156,16 +156,21 @@ class _VideoControlsState extends State<VideoControls> {
 
     // Обработчик аппаратной кнопки Back (ряд home/back) — через registerBackHandler + PopScope на экране
     widget.registerBackHandler?.call(() {
-      // Проверяем, видны ли контролы через State Machine
-      final isVisible =
-          _stateMachine.currentState is! ControlsHiddenState &&
-          _stateMachine.currentState is! SeekingOverlayState;
+      final state = _stateMachine.currentState;
+      final isHidden =
+          state is ControlsHiddenState || state is SeekingOverlayState;
 
-      if (isVisible) {
-        _stateMachine.handleEvent(const HideControlsEvent());
-        return true; // back поглощён
+      if (isHidden) {
+        return false; // контролы скрыты — страница покажет «Назад ещё раз» или выйдет
       }
-      return false; // back не обработан, выход с экрана
+      // Карусель развёрнута — уводим фокус на play/pause, тогда onFocusChanged вызовет переход в peek
+      if (state is ControlsVisibleExpandedState) {
+        _nav?.requestFocusOnId('play_pause_button');
+        return true;
+      }
+      // Контролы видны (peek и др.) — скрыть контролы
+      _stateMachine.handleEvent(const HideControlsEvent());
+      return true;
     });
 
     // ==================== Приоритетный обработчик клавиш ====================
@@ -288,20 +293,9 @@ class _VideoControlsState extends State<VideoControls> {
   /// Обработка side effects при переходе между состояниями.
   ///
   /// Вызывается из onStateChanged callback State Machine.
-  /// Используется для:
-  /// - Восстановления фокуса при показе контролов
-  /// - Логирования переходов
+  /// Фокус при показе контролов восстанавливается в билдере по _focusedIdBeforeHide ?? initialFocusId.
   void _handleStateTransition(ControlsState oldState, ControlsState newState) {
     debugPrint('State transition: $oldState → $newState');
-
-    // При переходе в ControlsVisiblePeekState с resetFocus - восстановить фокус
-    // (resetFocus передаётся через ShowControlsEvent)
-    if (newState is ControlsVisiblePeekState &&
-        oldState is ControlsHiddenState) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _nav?.scheduleFocusRestore('play_pause_button');
-      });
-    }
   }
 
   // ==================== Публичные методы управления контролами ====================

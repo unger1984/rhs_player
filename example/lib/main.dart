@@ -1,11 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:rhs_player_example/player_screen.dart';
-
-//to add
-// - current selected boxFit
-// - seek Overlays
+import 'package:rhs_player_example/pages/start/start_page.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -26,10 +22,9 @@ class MyApp extends StatelessWidget {
       designSize: const Size(1920, 1080),
       minTextAdapt: true,
       splitScreenMode: false,
-      // Use builder only if you need to use library outside ScreenUtilInit context
       builder: (_, child) => MaterialApp(
         title: 'Rhs_player Example',
-        home: PlayerScreen(),
+        home: const StartPage(),
         // debugShowCheckedModeBanner: false,
       ),
     );

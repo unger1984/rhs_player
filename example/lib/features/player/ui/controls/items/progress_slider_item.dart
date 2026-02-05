@@ -9,8 +9,8 @@ import 'package:rhs_player_example/features/player/ui/controls/widgets/progress_
 /// Элемент - слайдер прогресса с кастомной обработкой стрелок
 class ProgressSliderItem extends BaseFocusableItem {
   final RhsPlayerController controller;
-  final VoidCallback onSeekBackward;
-  final VoidCallback onSeekForward;
+  final void Function(Duration step) onSeekBackward;
+  final void Function(Duration step) onSeekForward;
 
   ProgressSliderItem({
     required super.id,
@@ -20,6 +20,8 @@ class ProgressSliderItem extends BaseFocusableItem {
     super.focusNode,
   });
 
+  static const _singleStep = Duration(seconds: 10);
+
   @override
   KeyHandlingResult handleKey(KeyEvent event) {
     if (event is! KeyDownEvent) return KeyHandlingResult.notHandled;
@@ -27,11 +29,11 @@ class ProgressSliderItem extends BaseFocusableItem {
     // Слайдер обрабатывает стрелки влево/вправо для перемотки
     switch (event.logicalKey) {
       case LogicalKeyboardKey.arrowLeft:
-        onSeekBackward();
+        onSeekBackward(_singleStep);
         return KeyHandlingResult.handled;
 
       case LogicalKeyboardKey.arrowRight:
-        onSeekForward();
+        onSeekForward(_singleStep);
         return KeyHandlingResult.handled;
 
       // Стрелки вверх/вниз передаем для навигации

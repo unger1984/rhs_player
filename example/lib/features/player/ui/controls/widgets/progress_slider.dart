@@ -1,9 +1,9 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:rhs_player/rhs_player.dart';
+import 'dart:async';
+
 import 'package:rhs_player_example/shared/ui/theme/app_colors.dart';
 import 'package:rhs_player_example/shared/ui/theme/app_durations.dart';
 import 'package:rhs_player_example/shared/ui/theme/app_sizes.dart';
@@ -199,8 +199,8 @@ class _ProgressThumbShape extends SliderComponentShape {
 class ProgressSlider extends StatefulWidget {
   final RhsPlayerController controller;
   final FocusNode focusNode;
-  final VoidCallback onSeekBackward;
-  final VoidCallback onSeekForward;
+  final void Function(Duration step) onSeekBackward;
+  final void Function(Duration step) onSeekForward;
   final VoidCallback? onNavigateUp;
   final VoidCallback? onNavigateDown;
 
@@ -219,35 +219,44 @@ class ProgressSlider extends StatefulWidget {
 }
 
 class _ProgressSliderState extends State<ProgressSlider> {
-  Timer? _repeatTimer;
+  Timer? _timerBackward;
+  Timer? _timerForward;
+  int _tickBackward = 0;
+  int _tickForward = 0;
 
   void _startRepeatBackward() {
-    _repeatTimer?.cancel();
-    widget.onSeekBackward();
-    _repeatTimer = Timer.periodic(AppDurations.repeatInterval, (_) {
+    _timerForward?.cancel();
+    _timerForward = null;
+    _tickBackward = 0;
+    widget.onSeekBackward(AppDurations.seekStepForTick(0));
+    _timerBackward = Timer.periodic(AppDurations.repeatInterval, (_) {
       if (!mounted) {
-        _repeatTimer?.cancel();
+        _timerBackward?.cancel();
         return;
       }
-      widget.onSeekBackward();
+      _tickBackward++;
+      widget.onSeekBackward(AppDurations.seekStepForTick(_tickBackward));
     });
   }
 
   void _startRepeatForward() {
-    _repeatTimer?.cancel();
-    widget.onSeekForward();
-    _repeatTimer = Timer.periodic(AppDurations.repeatInterval, (_) {
+    _timerBackward?.cancel();
+    _timerBackward = null;
+    _tickForward = 0;
+    widget.onSeekForward(AppDurations.seekStepForTick(0));
+    _timerForward = Timer.periodic(AppDurations.repeatInterval, (_) {
       if (!mounted) {
-        _repeatTimer?.cancel();
+        _timerForward?.cancel();
         return;
       }
-      widget.onSeekForward();
+      _tickForward++;
+      widget.onSeekForward(AppDurations.seekStepForTick(_tickForward));
     });
   }
 
   void _stopRepeat() {
-    _repeatTimer?.cancel();
-    _repeatTimer = null;
+    _timerBackward?.cancel();
+    _timerForward?.cancel();
   }
 
   @override

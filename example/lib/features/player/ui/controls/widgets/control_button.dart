@@ -10,14 +10,18 @@ import 'package:rhs_player_example/shared/ui/theme/focus_decoration.dart';
 
 /// Универсальная кнопка для Android TV (круглая 112x112 или квадратная с радиусом).
 /// При фокусе и нажатии — неоновая обводка как на макете.
-/// Если [repeatWhileHeld] true — при удержании [onPressed] вызывается повторно до отпускания.
+/// Если [repeatWhileHeld] true — при удержании вызывается повтор с растущим шагом ([onPressedWithStep]) или [onPressed].
 class ControlButton extends StatefulWidget {
-  final VoidCallback onPressed;
+  /// Разовый клик. Обязателен, если [onPressedWithStep] не задан.
+  final VoidCallback? onPressed;
+
+  /// При удержании (repeatWhileHeld) вызывается с растущим шагом перемотки.
+  final void Function(Duration step)? onPressedWithStep;
   final Widget child;
   final FocusNode focusNode;
   final bool enabled;
 
-  /// При удержании кнопки вызывать onPressed повторно до отпускания.
+  /// При удержании кнопки вызывать повтор с растущим шагом (onPressedWithStep) или onPressed.
   final bool repeatWhileHeld;
 
   /// Размер стороны. По умолчанию AppSizes.buttonNormal — круглая кнопка.
@@ -28,7 +32,8 @@ class ControlButton extends StatefulWidget {
 
   const ControlButton({
     super.key,
-    required this.onPressed,
+    this.onPressed,
+    this.onPressedWithStep,
     required this.child,
     required this.focusNode,
     this.enabled = true,
@@ -45,6 +50,7 @@ class _ControlButtonState extends State<ControlButton> {
   bool _pressed = false;
   bool _hovered = false;
   Timer? _repeatTimer;
+  int _repeatTick = 0;
 
   double get _size => (widget.size ?? AppSizes.buttonNormal).r;
   double? get _borderRadius =>
@@ -53,14 +59,27 @@ class _ControlButtonState extends State<ControlButton> {
   void _startRepeat() {
     _repeatTimer?.cancel();
     if (!widget.repeatWhileHeld || !widget.enabled) return;
-    widget.onPressed();
-    _repeatTimer = Timer.periodic(AppDurations.repeatInterval, (_) {
-      if (!mounted || !widget.enabled) {
-        _repeatTimer?.cancel();
-        return;
-      }
-      widget.onPressed();
-    });
+    if (widget.onPressedWithStep != null) {
+      _repeatTick = 0;
+      widget.onPressedWithStep!(AppDurations.seekStepForTick(0));
+      _repeatTimer = Timer.periodic(AppDurations.repeatInterval, (_) {
+        if (!mounted || !widget.enabled) {
+          _repeatTimer?.cancel();
+          return;
+        }
+        _repeatTick++;
+        widget.onPressedWithStep!(AppDurations.seekStepForTick(_repeatTick));
+      });
+    } else {
+      widget.onPressed?.call();
+      _repeatTimer = Timer.periodic(AppDurations.repeatInterval, (_) {
+        if (!mounted || !widget.enabled) {
+          _repeatTimer?.cancel();
+          return;
+        }
+        widget.onPressed?.call();
+      });
+    }
   }
 
   void _stopRepeat() {
@@ -89,7 +108,11 @@ class _ControlButtonState extends State<ControlButton> {
             if (widget.repeatWhileHeld) {
               _startRepeat();
             } else {
-              widget.onPressed();
+              if (widget.onPressedWithStep != null) {
+                widget.onPressedWithStep!(const Duration(seconds: 10));
+              } else {
+                widget.onPressed?.call();
+              }
             }
             return KeyEventResult.handled;
           }
@@ -115,7 +138,11 @@ class _ControlButtonState extends State<ControlButton> {
             if (widget.repeatWhileHeld) {
               _startRepeat();
             } else {
-              widget.onPressed();
+              if (widget.onPressedWithStep != null) {
+                widget.onPressedWithStep!(const Duration(seconds: 10));
+              } else {
+                widget.onPressed?.call();
+              }
             }
           },
           onTapUp: (_) {
@@ -128,7 +155,12 @@ class _ControlButtonState extends State<ControlButton> {
           },
           onTap: widget.repeatWhileHeld
               ? null
-              : (widget.enabled ? widget.onPressed : null),
+              : (widget.enabled
+                    ? (widget.onPressed ??
+                          () => widget.onPressedWithStep?.call(
+                            const Duration(seconds: 10),
+                          ))
+                    : null),
           child: Builder(
             builder: (context) {
               final focused = Focus.of(context).hasFocus;

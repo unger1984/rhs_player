@@ -16,6 +16,7 @@ import 'package:rhs_player_example/features/player/ui/controls/rows/full_width_r
 import 'package:rhs_player_example/features/player/ui/controls/rows/recommended_carousel_row.dart';
 import 'package:rhs_player_example/features/player/ui/controls/rows/three_zone_button_row.dart';
 import 'package:rhs_player_example/features/player/ui/controls/rows/top_bar_row.dart';
+import 'package:rhs_player_example/shared/ui/theme/app_durations.dart';
 
 /// Виджет управления видео с поддержкой Android TV пульта
 /// Использует новую систему навигации с Chain of Responsibility паттерном
@@ -90,6 +91,11 @@ class _VideoControlsState extends State<VideoControls> {
   RhsPlayerStatus? _previousPlayerStatus;
   VoidCallback? _removeStatusListener;
 
+  /// Повтор перемотки при удержании влево/вправо (контролы скрыты).
+  Timer? _prioritySeekTimer;
+  LogicalKeyboardKey? _prioritySeekKey;
+  int _prioritySeekTick = 0;
+
   @override
   void initState() {
     super.initState();
@@ -131,6 +137,20 @@ class _VideoControlsState extends State<VideoControls> {
   }
 
   bool _handlePriorityKey(KeyEvent event) {
+    // Остановка повтора перемотки при отпускании влево/вправо (в любом состоянии контролов)
+    if (event is KeyUpEvent) {
+      if (event.logicalKey == LogicalKeyboardKey.arrowLeft ||
+          event.logicalKey == LogicalKeyboardKey.arrowRight) {
+        if (_prioritySeekKey == event.logicalKey) {
+          _prioritySeekTimer?.cancel();
+          _prioritySeekTimer = null;
+          _prioritySeekKey = null;
+        }
+        return true;
+      }
+      return false;
+    }
+
     if (event is KeyDownEvent && !_controlsVisible) {
       final key = event.logicalKey;
       debugPrint('Priority key handler: key=$key, controlsVisible=false');
@@ -143,13 +163,33 @@ class _VideoControlsState extends State<VideoControls> {
           return true;
 
         case LogicalKeyboardKey.arrowLeft:
-          debugPrint('Priority key handler: Left arrow, seeking backward');
-          _seekBackward();
+          _prioritySeekTimer?.cancel();
+          _prioritySeekKey = LogicalKeyboardKey.arrowLeft;
+          _prioritySeekTick = 0;
+          _seekBackward(AppDurations.seekStepForTick(0));
+          _prioritySeekTimer = Timer.periodic(AppDurations.repeatInterval, (_) {
+            if (!mounted) {
+              _prioritySeekTimer?.cancel();
+              return;
+            }
+            _prioritySeekTick++;
+            _seekBackward(AppDurations.seekStepForTick(_prioritySeekTick));
+          });
           return true;
 
         case LogicalKeyboardKey.arrowRight:
-          debugPrint('Priority key handler: Right arrow, seeking forward');
-          _seekForward();
+          _prioritySeekTimer?.cancel();
+          _prioritySeekKey = LogicalKeyboardKey.arrowRight;
+          _prioritySeekTick = 0;
+          _seekForward(AppDurations.seekStepForTick(0));
+          _prioritySeekTimer = Timer.periodic(AppDurations.repeatInterval, (_) {
+            if (!mounted) {
+              _prioritySeekTimer?.cancel();
+              return;
+            }
+            _prioritySeekTick++;
+            _seekForward(AppDurations.seekStepForTick(_prioritySeekTick));
+          });
           return true;
 
         case LogicalKeyboardKey.arrowUp:
@@ -162,13 +202,14 @@ class _VideoControlsState extends State<VideoControls> {
           break;
       }
     }
-    return false; // Событие не обработано, передать дальше
+    return false;
   }
 
   @override
   void dispose() {
     widget.registerBackHandler?.call(null);
     ServicesBinding.instance.keyboard.removeHandler(_handlePriorityKey);
+    _prioritySeekTimer?.cancel();
     _hideTimer?.cancel();
     _seekingOverlayTimer?.cancel();
     _removeStatusListener?.call();
@@ -360,7 +401,7 @@ class _VideoControlsState extends State<VideoControls> {
               centerItems: [
                 ButtonItem(
                   id: 'rewind_button',
-                  onPressed: _seekBackward,
+                  onPressedWithStep: _seekBackward,
                   repeatWhileHeld: true,
                   child: Center(
                     child: SizedBox(
@@ -407,7 +448,7 @@ class _VideoControlsState extends State<VideoControls> {
                 ),
                 ButtonItem(
                   id: 'forward_button',
-                  onPressed: _seekForward,
+                  onPressedWithStep: _seekForward,
                   repeatWhileHeld: true,
                   child: Center(
                     child: SizedBox(
@@ -465,19 +506,19 @@ class _VideoControlsState extends State<VideoControls> {
     );
   }
 
-  void _seekBackward() {
+  void _seekBackward([Duration? step]) {
     _onSeekWhileControlsHidden();
-    final newPosition =
-        widget.controller.currentPosition - const Duration(seconds: 10);
+    final s = step ?? const Duration(seconds: 10);
+    final newPosition = widget.controller.currentPosition - s;
     widget.controller.seekTo(
       newPosition > Duration.zero ? newPosition : Duration.zero,
     );
   }
 
-  void _seekForward() {
+  void _seekForward([Duration? step]) {
     _onSeekWhileControlsHidden();
-    final newPosition =
-        widget.controller.currentPosition + const Duration(seconds: 10);
+    final s = step ?? const Duration(seconds: 10);
+    final newPosition = widget.controller.currentPosition + s;
     final duration = widget.controller.currentPositionData.duration;
     widget.controller.seekTo(newPosition < duration ? newPosition : duration);
   }

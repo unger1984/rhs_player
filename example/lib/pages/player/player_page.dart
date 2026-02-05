@@ -38,6 +38,9 @@ class _PlayerPageState extends State<PlayerPage> {
   }
 
   void _requestPop() {
+    // Предотвращаем повторный вызов, если pop уже запланирован
+    if (_requestedPop) return;
+
     setState(() => _requestedPop = true);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) Navigator.of(context).pop();

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:rhs_player_example/features/player/ui/actions/player_intents.dart';
 import 'package:rhs_player_example/features/player/ui/controls/core/control_row.dart';
 import 'package:rhs_player_example/features/player/ui/controls/navigation/navigation_manager.dart';
 
@@ -207,10 +208,18 @@ class _VideoControlsBuilderState extends State<VideoControlsBuilder> {
       child: GestureDetector(
         behavior: HitTestBehavior.translucent,
         onTap: () {
-          widget.onControlsInteraction?.call();
+          // Показать контролы через Actions
+          Actions.maybeInvoke<ShowControlsIntent>(
+            context,
+            const ShowControlsIntent(),
+          );
         },
         onTapDown: (details) {
-          widget.onControlsInteraction?.call();
+          // Показать контролы через Actions
+          Actions.maybeInvoke<ShowControlsIntent>(
+            context,
+            const ShowControlsIntent(),
+          );
           if (!widget.controlsVisible) return;
           if (widget.rows.length < 3) return;
           final carouselItemId = widget.rows.last.items.first.id;
@@ -241,51 +250,13 @@ class _VideoControlsBuilderState extends State<VideoControlsBuilder> {
             child: Focus(
               focusNode: _rootFocusNode,
               onKeyEvent: (FocusNode node, KeyEvent event) {
-                if (event is KeyDownEvent) {
-                  final key = event.logicalKey;
-                  final primaryFocus = FocusManager.instance.primaryFocus;
-                  debugPrint(
-                    'VideoControlsBuilder onKeyEvent: key=$key, controlsVisible=${widget.controlsVisible}, rootHasFocus=${_rootFocusNode.hasFocus}, primaryFocus=${primaryFocus?.debugLabel}',
-                  );
-                  if (key == LogicalKeyboardKey.info ||
-                      key == LogicalKeyboardKey.contextMenu) {
-                    widget.onToggleVisibilityRequested?.call();
-                    return KeyEventResult.handled;
-                  }
-                  // Когда контролы скрыты: влево/вправо — перемотка, вверх/вниз/OK — показать контролы
-                  if (!widget.controlsVisible) {
-                    debugPrint(
-                      'VideoControlsBuilder: key=$key, controlsVisible=false, hasFocus=${_rootFocusNode.hasFocus}',
-                    );
-                    switch (key) {
-                      case LogicalKeyboardKey.arrowLeft:
-                        widget.onSeekBackward?.call();
-                        return KeyEventResult.handled;
-                      case LogicalKeyboardKey.arrowRight:
-                        widget.onSeekForward?.call();
-                        return KeyEventResult.handled;
-                      case LogicalKeyboardKey.arrowUp:
-                      case LogicalKeyboardKey.arrowDown:
-                        widget.onControlsInteraction?.call();
-                        return KeyEventResult.handled;
-                      case LogicalKeyboardKey.select:
-                      case LogicalKeyboardKey.enter:
-                        debugPrint(
-                          'VideoControlsBuilder: OK pressed, showing controls',
-                        );
-                        // Показать контролы и поставить фокус на initial (play/pause)
-                        setState(
-                          () => _focusedIdBeforeHide = widget.initialFocusId,
-                        );
-                        widget.onControlsInteraction?.call();
-                        return KeyEventResult.handled;
-                      default:
-                        break;
-                    }
-                  } else {
-                    widget.onControlsInteraction?.call();
-                  }
+                // Любое нажатие клавиши при видимых контролах сбрасывает таймер автоскрытия
+                if (event is KeyDownEvent && widget.controlsVisible) {
+                  widget.onControlsInteraction?.call();
                 }
+
+                // Обработка клавиш делегирована Shortcuts/Actions (выше в дереве).
+                // Здесь только навигация между элементами через NavigationManager.
                 return _navigationManager.handleKey(
                   node,
                   event,

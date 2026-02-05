@@ -1,5 +1,6 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:rhs_player_example/pages/player/player_page.dart';
 
 class StartPage extends StatefulWidget {
@@ -17,7 +18,7 @@ class _StartPageState extends State<StartPage> {
   }
 
   void _closeApp() {
-    SystemNavigator.pop();
+    exit(0);
   }
 
   @override

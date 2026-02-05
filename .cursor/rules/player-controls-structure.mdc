@@ -1,0 +1,336 @@
+# Контролы плеера — архитектура и паттерны
+
+Система управления видеоплеером с поддержкой Android TV, мыши и клавиатуры.
+
+## Ключевые паттерны
+
+### 1. State Machine
+Централизованное управление состояниями контролов (6 состояний + события + конфигурация видимости).
+
+**Преимущества:**
+- Type-safe переходы через sealed classes (exhaustive checking)
+- Отсутствие булевых флагов и race conditions
+- Централизованное управление таймерами (автоскрытие, слайдер перемотки)
+
+### 2. Chain of Responsibility
+Навигация фокусом: каждый элемент решает, обрабатывать клавишу или передать дальше.
+
+**Примеры:**
+- `ProgressSliderItem`: стрелки влево/вправо = перемотка (`handled`)
+- `ButtonItem`: стрелки = навигация (`notHandled`)
+- `RecommendedCarouselRow`: стрелки влево/вправо = прокрутка (`handled`)
+
+### 3. Декларативность
+Структура контролов описывается через список `rows` в `VideoControlsBuilder`.
+
+## Структура контролов
+
+Контролы видеоплеера разбиты на **4 ряда** (сверху вниз):
+
+### Ряд 0: TopBarRow
+
+**Реализация:** [`TopBarRow`](../../example/lib/features/player/ui/controls/rows/top_bar_row.dart)  
+**Index:** 0
+
+**Элементы (слева → справа):**
+- Кнопка "Назад" — [`ButtonItem`](../../example/lib/features/player/ui/controls/items/button_item.dart) (`back_button`)
+- Заголовок фильма — опциональный параметр `title`
+- Селектор саундтрека — [`SoundtrackSelectorItem`](../../example/lib/features/player/ui/controls/items/soundtrack_selector_item.dart) (только при наличии аудиотреков)
+
+**Параметры:**
+- Высота: `124.h`
+- Фон: `Color(0xFF201B2E)`
+- Отступы: `120.w`
+
+### Ряд 1: FullWidthRow (слайдер прогресса)
+
+**Реализация:** [`FullWidthRow`](../../example/lib/features/player/ui/controls/rows/full_width_row.dart)  
+**Index:** 1
+
+**Элементы:**
+- [`ProgressSliderItem`](../../example/lib/features/player/ui/controls/items/progress_slider_item.dart) (`progress_slider`)
+  - Показывает позицию, длительность, буферизацию
+  - Стрелки влево/вправо = перемотка на 10 сек (Chain of Responsibility: `handled`)
+  - Остальные клавиши = навигация (`notHandled`)
+
+**Видимость:**
+- Показывается при `config.showProgressSlider = true`
+- В состоянии `SeekingOverlayState` — только слайдер видим (перемотка со скрытыми контролами)
+
+### Ряд 2: ThreeZoneButtonRow (кнопки управления)
+
+**Реализация:** [`ThreeZoneButtonRow`](../../example/lib/features/player/ui/controls/rows/three_zone_button_row.dart)  
+**Index:** 2
+
+**Структура (три зоны: слева | центр | справа):**
+
+**Левая зона:**
+- `favorite_button` — избранное
+
+**Центральная зона:**
+- `rewind_button` — перемотка назад (удержание для повтора)
+- `play_pause_button` — [`PlayPauseButton`](../../example/lib/features/player/ui/controls/widgets/play_pause_button.dart) (**начальный фокус**)
+- `forward_button` — перемотка вперёд (удержание для повтора)
+
+**Правая зона:**
+- [`QualitySelectorItem`](../../example/lib/features/player/ui/controls/items/quality_selector_item.dart) (только при наличии видеотреков)
+  - Открывает меню → отправляет `MenuOpenedEvent` → блокирует автоскрытие
+  - Закрывает меню → отправляет `MenuClosedEvent` → возврат к автоскрытию
+
+**Параметры:**
+- Размер кнопок: `76.r`, бордер-радиус: `16.r`
+- Расстояние между: `32.w`
+- Отступы: `120.w`
+
+### Ряд 3: RecommendedCarouselRow (карусель)
+
+**Реализация:** [`RecommendedCarouselRow`](../../example/lib/features/player/ui/controls/rows/recommended_carousel_row.dart)  
+**Index:** 3
+
+**Элементы:**
+- Заголовок: "Рекомендуем посмотреть"
+- Горизонтальная карусель с превью (размер карточки: `388.w × 220.h`, отступ: `40.w`)
+
+**Режимы отображения:**
+- **Peek** (96.h): слегка выглядывает снизу, недоступна для фокуса
+- **Expanded** (320.h): полностью развёрнута при фокусе (+ отступ `40.h` снизу)
+
+**Навигация (Chain of Responsibility):**
+- Фокус всегда на крайнем левом слайде
+- Стрелка вправо → прокрутка вперёд (`handled`)
+- Стрелка влево → прокрутка назад (`handled`)
+- Enter → активация элемента (`onItemActivated`)
+- Стрелки вверх/вниз → навигация на другие ряды (`notHandled`)
+
+**Анимация:**
+- `AnimatedSize` (300ms) при переходе peek ↔ expanded
+- State Machine контролирует режим через `FocusChangedEvent`
+
+### Буферизация (поверх всех контролов)
+
+**Реализация:** Метод `_buildBufferingOverlay()` в [`video_controls.dart`](../../example/lib/features/player/ui/controls/video_controls.dart)
+
+**Элементы:**
+- `CircularProgressIndicator` (размер: `80.r × 80.r`)
+- Показывается при `RhsPlayerStatusLoading`
+- **Всегда поверх видео**, независимо от видимости контролов
+
+## State Machine — 6 состояний контролов
+
+**State Machine** управляет состояниями контролов через sealed classes (type-safe, exhaustive checking).
+
+### 1. ControlsHiddenState
+
+**Описание:** Все контролы скрыты за границами экрана.
+
+**ControlsVisibilityConfig:**
+- `showTopBar: false`
+- `showProgressSlider: false`
+- `showControlButtons: false`
+- `showCarousel: false`
+- `excludeFromFocus: true` → все элементы исключены из фокус-дерева
+- `topBarSlideOffset: -1.0` → TopBar уезжает вверх
+- `bottomControlsSlideOffset: 1.0` → кнопки и карусель уезжают вниз
+
+**Таймеры:** нет
+
+**Переходы:**
+- OK/Enter/стрелки → `ControlsVisiblePeekState` (`ShowControlsEvent`)
+- Стрелки влево/вправо (перемотка) → `SeekingOverlayState` (`SeekWhileHiddenEvent`)
+
+### 2. SeekingOverlayState
+
+**Описание:** Показан только слайдер прогресса (перемотка со скрытыми контролами).
+
+**ControlsVisibilityConfig:**
+- `showProgressSlider: true` ← только слайдер
+- Остальное скрыто
+- `excludeFromFocus: true` → фокус недоступен
+
+**Таймеры:** автоскрытие слайдера через 2 секунды (`seekingOverlayDuration`)
+
+**Переходы:**
+- Таймер истёк → `ControlsHiddenState` (`SeekingOverlayTimerExpiredEvent`)
+- OK/Enter/стрелки вверх/вниз → `ControlsVisiblePeekState` (`ShowControlsEvent`)
+- Повторная перемотка → остаёмся в `SeekingOverlayState` (сброс таймера)
+
+### 3. ControlsVisiblePeekState
+
+**Описание:** Все контролы видны, карусель в режиме peek (основной режим).
+
+**ControlsVisibilityConfig:**
+- Все элементы видны: `showTopBar: true`, `showProgressSlider: true`, `showControlButtons: true`
+- `showCarousel: true`, `carouselMode: CarouselMode.peek` (высота 96.h)
+- `excludeFromFocus: false` → фокус доступен
+- `topBarSlideOffset: 0.0`, `bottomControlsSlideOffset: 0.0`
+
+**Таймеры:** автоскрытие через 5 секунд (`autoHideDelay`)
+
+**Переходы:**
+- Таймер истёк → `ControlsHiddenState` (`AutoHideTimerExpiredEvent`)
+- Фокус на карусель → `ControlsVisibleExpandedState` (`FocusChangedEvent('recommended_row_carousel')`)
+- Открыто меню → `MenuOpenState` (`MenuOpenedEvent`)
+- Плеер на паузе → `ControlsVisiblePausedState` (`PlayerStatusChangedEvent(RhsPlayerStatusPaused)`)
+- Взаимодействие → остаёмся в `ControlsVisiblePeekState` (сброс таймера через `UserInteractionEvent`)
+
+### 4. ControlsVisibleExpandedState
+
+**Описание:** Все контролы видны, карусель полностью развёрнута.
+
+**ControlsVisibilityConfig:**
+- Все элементы видны
+- `carouselMode: CarouselMode.expanded` (высота 320.h)
+- `excludeFromFocus: false`
+
+**Таймеры:** автоскрытие ОТКЛЮЧЕНО (пока фокус на карусели)
+
+**Переходы:**
+- Фокус уходит с карусели → `ControlsVisiblePeekState` (`FocusChangedEvent`)
+- Клик вне карусели → `ControlsVisiblePeekState` (+ фокус на `play_pause_button`)
+- Открыто меню → `MenuOpenState` (`MenuOpenedEvent`)
+- Плеер на паузе → `ControlsVisiblePausedState` (`PlayerStatusChangedEvent(RhsPlayerStatusPaused)`)
+
+### 5. MenuOpenState
+
+**Описание:** Меню качества/саундтрека открыто.
+
+**ControlsVisibilityConfig:** наследует от `previousState` (peek или expanded)
+
+**Таймеры:** автоскрытие ЗАБЛОКИРОВАНО
+
+**Переходы:**
+- Меню закрыто → возврат в `previousState` (`MenuClosedEvent`)
+
+**Особенности:**
+- Фокус переводится на overlay меню (`_overlayFocusNode`)
+- State хранит `previousState` для возврата
+
+### 6. ControlsVisiblePausedState
+
+**Описание:** Плеер на паузе, контролы остаются видимыми.
+
+**ControlsVisibilityConfig:**
+- Аналогично `ControlsVisiblePeekState` (карусель peek)
+- `excludeFromFocus: false`
+
+**Таймеры:** автоскрытие ОТКЛЮЧЕНО (пока на паузе)
+
+**Переходы:**
+- Play → `ControlsVisiblePeekState` (`PlayerStatusChangedEvent(RhsPlayerStatusPlaying)`)
+- Фокус на карусель → `ControlsVisibleExpandedState` (`FocusChangedEvent`)
+- Открыто меню → `MenuOpenState` (`MenuOpenedEvent`)
+
+## События State Machine (sealed classes)
+
+### Пользовательские действия
+- `ShowControlsEvent(resetFocus: bool)` — показать контролы
+- `HideControlsEvent()` — скрыть контролы
+- `ToggleControlsEvent()` — переключить видимость
+
+### Навигация и фокус
+- `FocusChangedEvent(itemId)` — изменился фокус (для переключения режима карусели)
+
+### Перемотка
+- `SeekWhileHiddenEvent()` — перемотка при скрытых контролах
+
+### Взаимодействие
+- `UserInteractionEvent()` — любое взаимодействие (сброс таймера автоскрытия)
+
+### Меню
+- `MenuOpenedEvent()` — меню открыто (блокировка автоскрытия)
+- `MenuClosedEvent()` — меню закрыто (возврат в `previousState`)
+
+### Таймеры
+- `AutoHideTimerExpiredEvent()` — истёк таймер автоскрытия (5 сек)
+- `SeekingOverlayTimerExpiredEvent()` — истёк таймер слайдера (2 сек)
+
+### Статус плеера
+- `PlayerStatusChangedEvent(status)` — изменился статус (play/pause/loading/error)
+
+## Пример использования State Machine
+
+```dart
+// Инициализация в initState()
+_stateMachine = ControlsStateMachine(
+  config: StateConfig(
+    autoHideDelay: Duration(seconds: 5),
+    seekingOverlayDuration: Duration(seconds: 2),
+  ),
+  initialState: ControlsVisiblePeekState(),
+  onStateChanged: (oldState, newState) {
+    if (mounted) setState(() {});
+  },
+);
+
+// Подписка на статус плеера
+widget.controller.addStatusListener((status) {
+  _stateMachine.handleEvent(PlayerStatusChangedEvent(status));
+});
+
+// Отправка событий
+_stateMachine.handleEvent(ShowControlsEvent(resetFocus: true));
+_stateMachine.handleEvent(FocusChangedEvent('recommended_row_carousel'));
+_stateMachine.handleEvent(MenuOpenedEvent());
+
+// Получение состояния
+final config = _stateMachine.currentState.visibilityConfig;
+
+// В VideoControlsBuilder
+VideoControlsBuilder(
+  rows: [...],
+  controlsVisible: !config.excludeFromFocus,
+  visibilityConfig: config,
+  onFocusChanged: (id) => _stateMachine.handleEvent(FocusChangedEvent(id)),
+);
+```
+
+## Ключевые файлы
+
+### State Machine
+- [`controls_state_machine.dart`](../../example/lib/features/player/ui/controls/state/controls_state_machine.dart) — логика переходов + таймеры
+- [`controls_state.dart`](../../example/lib/features/player/ui/controls/state/controls_state.dart) — sealed классы (6 состояний)
+- [`controls_event.dart`](../../example/lib/features/player/ui/controls/state/controls_event.dart) — sealed классы событий
+- [`controls_visibility_config.dart`](../../example/lib/features/player/ui/controls/state/controls_visibility_config.dart) — конфигурация видимости
+- [`state/README.md`](../../example/lib/features/player/ui/controls/state/README.md) — полная документация State Machine
+
+### UI и навигация
+- [`video_controls.dart`](../../example/lib/features/player/ui/controls/video_controls.dart) — основной виджет, интеграция State Machine
+- [`video_controls_builder.dart`](../../example/lib/features/player/ui/controls/builder/video_controls_builder.dart) — билдер с анимацией
+- [`navigation_manager.dart`](../../example/lib/features/player/ui/controls/navigation/navigation_manager.dart) — Chain of Responsibility
+
+### Базовые классы
+- [`control_row.dart`](../../example/lib/features/player/ui/controls/core/control_row.dart) — базовый класс рядов
+- [`focusable_item.dart`](../../example/lib/features/player/ui/controls/core/focusable_item.dart) — базовый класс элементов
+
+### Детальная документация
+- [`controls/README.md`](../../example/lib/features/player/ui/controls/README.md) — архитектура и паттерны
+- [`state/README.md`](../../example/lib/features/player/ui/controls/state/README.md) — State Machine (диаграммы переходов)
+
+## Правила работы с контролами
+
+### При добавлении нового Item
+1. Наследовать `FocusableItem`
+2. Реализовать `handleKey()` (Chain of Responsibility)
+3. Вернуть `KeyHandlingResult.handled` при обработке клавиши
+4. Вернуть `KeyHandlingResult.notHandled` для навигации фокусом
+
+### При добавлении нового Row
+1. Наследовать `ControlRow`
+2. Указать уникальный `id` и `index` (для сортировки)
+3. Реализовать `build()` для layout
+
+### При добавлении нового состояния
+1. Создать класс в `controls_state.dart` (sealed)
+2. Определить `visibilityConfig`
+3. Создать события в `controls_event.dart`
+4. Добавить переходы в `ControlsStateMachine._transition()` (exhaustive switch)
+
+### При добавлении нового ряда с управлением видимостью
+1. Добавить поле в `ControlsVisibilityConfig`
+2. Обновить все preset конфигурации (hidden, seekingOverlay, visiblePeek, visibleExpanded)
+3. Добавить условный рендеринг в `VideoControlsBuilder`
+
+### Отладка
+- Все переходы логируются через `dart:developer` с именем `ControlsStateMachine`
+- Используйте DevTools для просмотра логов переходов
+- Фильтр по имени: `ControlsStateMachine`

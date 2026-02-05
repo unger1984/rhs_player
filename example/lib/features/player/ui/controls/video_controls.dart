@@ -19,10 +19,18 @@ import 'package:rhs_player_example/features/player/ui/controls/rows/full_width_r
 import 'package:rhs_player_example/features/player/ui/controls/rows/recommended_carousel_row.dart';
 import 'package:rhs_player_example/features/player/ui/controls/rows/three_zone_button_row.dart';
 import 'package:rhs_player_example/features/player/ui/controls/rows/top_bar_row.dart';
+import 'package:rhs_player_example/features/player/ui/controls/state/controls_event.dart';
+import 'package:rhs_player_example/features/player/ui/controls/state/controls_state.dart';
+import 'package:rhs_player_example/features/player/ui/controls/state/controls_state_machine.dart';
+import 'package:rhs_player_example/features/player/ui/controls/state/state_config.dart';
 import 'package:rhs_player_example/shared/ui/theme/app_durations.dart';
 
-/// Виджет управления видео с поддержкой Android TV пульта
-/// Использует новую систему навигации с Chain of Responsibility паттерном
+/// Виджет управления видео с поддержкой Android TV пульта.
+///
+/// Использует паттерны:
+/// - State Machine для управления состояниями контролов (ControlsStateMachine)
+/// - Chain of Responsibility для навигации между элементами (NavigationManager)
+/// - Actions/Intents для обработки команд управления плеером
 class VideoControls extends StatefulWidget {
   final RhsPlayerController controller;
   final VoidCallback onSwitchSource;
@@ -62,26 +70,20 @@ class VideoControls extends StatefulWidget {
 }
 
 class _VideoControlsState extends State<VideoControls> {
+  // ==================== State Machine ====================
+
+  /// State Machine управления состояниями контролов (скрыты/видны/меню/пауза и т.д.)
+  late final ControlsStateMachine _stateMachine;
+
+  // ==================== Навигация и UI ====================
+
   /// Колбэки навигации из билдера (родительский context не видит VideoControlsNavigation).
   NavCallbacks? _nav;
 
   /// Key ряда карусели для определения клика вне карусели (свернуть при клике мимо).
   final GlobalKey _carouselRowKey = GlobalKey();
 
-  /// Видимость контролов (верхняя/нижняя группа с анимацией).
-  bool _controlsVisible = true;
-
-  /// Показывать слайдер прогресса при перемотке со скрытыми контролами.
-  bool _seekingOverlayVisible = false;
-
-  /// Таймер автоскрытия контролов.
-  Timer? _hideTimer;
-
-  /// Таймер скрытия слайдера после перемотки (контролы скрыты).
-  Timer? _seekingOverlayTimer;
-
-  /// Открыто меню выбора качества или саундтрека — контролы скрывать нельзя.
-  bool _isMenuOpen = false;
+  // ==================== Треки (видео/аудио) ====================
 
   /// Показывать кнопку качества только после загрузки видеотреков.
   bool _hasVideoTracks = false;
@@ -91,10 +93,14 @@ class _VideoControlsState extends State<VideoControls> {
   bool _hasAudioTracks = false;
   VoidCallback? _removeAudioTracksListener;
 
-  RhsPlayerStatus? _previousPlayerStatus;
+  // ==================== Статус плеера ====================
+
   VoidCallback? _removeStatusListener;
 
-  /// Повтор перемотки при удержании влево/вправо (контролы скрыты).
+  // ==================== Приоритетная обработка клавиш (повтор перемотки) ====================
+
+  /// Таймер повтора перемотки при удержании влево/вправо (контролы скрыты).
+  /// Управляется локально, не через State Machine, т.к. это UI-специфичная логика.
   Timer? _prioritySeekTimer;
   LogicalKeyboardKey? _prioritySeekKey;
   int _prioritySeekTick = 0;
@@ -102,16 +108,34 @@ class _VideoControlsState extends State<VideoControls> {
   @override
   void initState() {
     super.initState();
-    _previousPlayerStatus = widget.controller.currentPlayerStatus;
+
+    // ==================== Инициализация State Machine ====================
+
+    _stateMachine = ControlsStateMachine(
+      config: StateConfig(
+        autoHideDelay: widget.autoHideDelay,
+        seekingOverlayDuration: const Duration(seconds: 2),
+      ),
+      // Начальное состояние - контролы видны в режиме peek
+      initialState: const ControlsVisiblePeekState(),
+      // Callback на изменение состояния - обновляем UI и обрабатываем side effects
+      onStateChanged: (oldState, newState) {
+        if (mounted) {
+          setState(() {});
+          _handleStateTransition(oldState, newState);
+        }
+      },
+    );
+
+    // ==================== Подписка на статус плеера ====================
+
+    // Отправляем события изменения статуса в State Machine
     _removeStatusListener = widget.controller.addStatusListener((status) {
-      final wasPaused = _previousPlayerStatus is RhsPlayerStatusPaused;
-      _previousPlayerStatus = status;
-      if (wasPaused &&
-          (status is RhsPlayerStatusPlaying ||
-              status is RhsPlayerStatusLoading)) {
-        _resetHideTimer();
-      }
+      _stateMachine.handleEvent(PlayerStatusChangedEvent(status));
     });
+
+    // ==================== Подписка на треки ====================
+
     _removeVideoTracksListener = widget.controller.addVideoTracksListener((
       tracks,
     ) {
@@ -119,6 +143,7 @@ class _VideoControlsState extends State<VideoControls> {
         setState(() => _hasVideoTracks = tracks.isNotEmpty);
       }
     });
+
     _removeAudioTracksListener = widget.controller.addAudioTracksListener((
       tracks,
     ) {
@@ -126,23 +151,36 @@ class _VideoControlsState extends State<VideoControls> {
         setState(() => _hasAudioTracks = tracks.isNotEmpty);
       }
     });
-    _resetHideTimer();
+
+    // ==================== Аппаратная кнопка Back ====================
+
     // Обработчик аппаратной кнопки Back (ряд home/back) — через registerBackHandler + PopScope на экране
     widget.registerBackHandler?.call(() {
-      if (_controlsVisible) {
-        _hideControls();
-        return true;
+      // Проверяем, видны ли контролы через State Machine
+      final isVisible =
+          _stateMachine.currentState is! ControlsHiddenState &&
+          _stateMachine.currentState is! SeekingOverlayState;
+
+      if (isVisible) {
+        _stateMachine.handleEvent(const HideControlsEvent());
+        return true; // back поглощён
       }
-      return false;
+      return false; // back не обработан, выход с экрана
     });
-    // Приоритетный обработчик клавиш - перехватывает ДО системы фокусов
+
+    // ==================== Приоритетный обработчик клавиш ====================
+
+    // Перехватывает события ДО системы фокусов для обработки при скрытых контролах
     ServicesBinding.instance.keyboard.addHandler(_handlePriorityKey);
   }
 
   /// Приоритетный обработчик клавиш для скрытых контролов.
-  /// Перехватывает события ДО системы фокусов для обработки:
-  /// - OK/Enter/стрелки вверх/вниз → показать контролы
-  /// - Стрелки влево/вправо → перемотка с повтором при удержании
+  ///
+  /// Перехватывает события ДО системы фокусов для обработки при скрытых контролах:
+  /// - OK/Enter/стрелки вверх/вниз → показать контролы (через ShowControlsEvent)
+  /// - Стрелки влево/вправо → перемотка с повтором при удержании (через SeekWhileHiddenEvent)
+  ///
+  /// Возвращает true, если событие обработано (поглощено).
   bool _handlePriorityKey(KeyEvent event) {
     // Остановка повтора перемотки при отпускании влево/вправо
     if (event is KeyUpEvent) {
@@ -158,135 +196,141 @@ class _VideoControlsState extends State<VideoControls> {
       return false;
     }
 
-    // Обработка клавиш при скрытых контролах
-    if (event is KeyDownEvent && !_controlsVisible) {
-      final key = event.logicalKey;
+    // Обработка только при KeyDownEvent и скрытых контролах
+    if (event is! KeyDownEvent) return false;
 
-      // OK/Enter/стрелки вверх/вниз → показать контролы
-      if (key == LogicalKeyboardKey.select ||
-          key == LogicalKeyboardKey.enter ||
-          key == LogicalKeyboardKey.arrowUp ||
-          key == LogicalKeyboardKey.arrowDown) {
-        debugPrint('Priority key handler: $key pressed, showing controls');
-        _showControls(resetFocus: true);
-        return true;
-      }
+    final state = _stateMachine.currentState;
+    final isControlsHidden =
+        state is ControlsHiddenState || state is SeekingOverlayState;
 
-      // Стрелки влево/вправо → перемотка с повтором при удержании
-      if (key == LogicalKeyboardKey.arrowLeft) {
-        _prioritySeekTimer?.cancel();
-        _prioritySeekKey = LogicalKeyboardKey.arrowLeft;
-        _prioritySeekTick = 0;
-        _seekBackward(AppDurations.seekStepForTick(0));
-        _prioritySeekTimer = Timer.periodic(AppDurations.repeatInterval, (_) {
-          if (!mounted) {
-            _prioritySeekTimer?.cancel();
-            return;
-          }
-          _prioritySeekTick++;
-          _seekBackward(AppDurations.seekStepForTick(_prioritySeekTick));
-        });
-        return true;
-      }
+    if (!isControlsHidden) return false;
 
-      if (key == LogicalKeyboardKey.arrowRight) {
-        _prioritySeekTimer?.cancel();
-        _prioritySeekKey = LogicalKeyboardKey.arrowRight;
-        _prioritySeekTick = 0;
-        _seekForward(AppDurations.seekStepForTick(0));
-        _prioritySeekTimer = Timer.periodic(AppDurations.repeatInterval, (_) {
-          if (!mounted) {
-            _prioritySeekTimer?.cancel();
-            return;
-          }
-          _prioritySeekTick++;
-          _seekForward(AppDurations.seekStepForTick(_prioritySeekTick));
-        });
-        return true;
-      }
+    final key = event.logicalKey;
+
+    // OK/Enter/стрелки вверх/вниз → показать контролы с восстановлением фокуса
+    if (key == LogicalKeyboardKey.select ||
+        key == LogicalKeyboardKey.enter ||
+        key == LogicalKeyboardKey.arrowUp ||
+        key == LogicalKeyboardKey.arrowDown) {
+      debugPrint('Priority key handler: $key pressed, showing controls');
+      _stateMachine.handleEvent(const ShowControlsEvent(resetFocus: true));
+      return true;
     }
+
+    // Стрелки влево/вправо → перемотка с повтором при удержании
+    if (key == LogicalKeyboardKey.arrowLeft) {
+      _prioritySeekTimer?.cancel();
+      _prioritySeekKey = LogicalKeyboardKey.arrowLeft;
+      _prioritySeekTick = 0;
+      _seekBackward(AppDurations.seekStepForTick(0));
+      // Уведомляем State Machine о перемотке (для показа слайдера)
+      _stateMachine.handleEvent(const SeekWhileHiddenEvent());
+      // Запускаем повтор перемотки
+      _prioritySeekTimer = Timer.periodic(AppDurations.repeatInterval, (_) {
+        if (!mounted) {
+          _prioritySeekTimer?.cancel();
+          return;
+        }
+        _prioritySeekTick++;
+        _seekBackward(AppDurations.seekStepForTick(_prioritySeekTick));
+        // При каждом повторе сбрасываем таймер слайдера
+        _stateMachine.handleEvent(const SeekWhileHiddenEvent());
+      });
+      return true;
+    }
+
+    if (key == LogicalKeyboardKey.arrowRight) {
+      _prioritySeekTimer?.cancel();
+      _prioritySeekKey = LogicalKeyboardKey.arrowRight;
+      _prioritySeekTick = 0;
+      _seekForward(AppDurations.seekStepForTick(0));
+      // Уведомляем State Machine о перемотке (для показа слайдера)
+      _stateMachine.handleEvent(const SeekWhileHiddenEvent());
+      // Запускаем повтор перемотки
+      _prioritySeekTimer = Timer.periodic(AppDurations.repeatInterval, (_) {
+        if (!mounted) {
+          _prioritySeekTimer?.cancel();
+          return;
+        }
+        _prioritySeekTick++;
+        _seekForward(AppDurations.seekStepForTick(_prioritySeekTick));
+        // При каждом повторе сбрасываем таймер слайдера
+        _stateMachine.handleEvent(const SeekWhileHiddenEvent());
+      });
+      return true;
+    }
+
     return false;
   }
 
   @override
   void dispose() {
+    // Очистка State Machine (отмена таймеров)
+    _stateMachine.dispose();
+
+    // Очистка обработчиков
     widget.registerBackHandler?.call(null);
     ServicesBinding.instance.keyboard.removeHandler(_handlePriorityKey);
+
+    // Отмена таймера повтора перемотки
     _prioritySeekTimer?.cancel();
-    _hideTimer?.cancel();
-    _seekingOverlayTimer?.cancel();
+
+    // Отписка от событий плеера
     _removeStatusListener?.call();
     _removeVideoTracksListener?.call();
     _removeAudioTracksListener?.call();
+
     super.dispose();
   }
 
+  // ==================== Обработчики состояний и переходов ====================
+
+  /// Обработка side effects при переходе между состояниями.
+  ///
+  /// Вызывается из onStateChanged callback State Machine.
+  /// Используется для:
+  /// - Восстановления фокуса при показе контролов
+  /// - Логирования переходов
+  void _handleStateTransition(ControlsState oldState, ControlsState newState) {
+    debugPrint('State transition: $oldState → $newState');
+
+    // При переходе в ControlsVisiblePeekState с resetFocus - восстановить фокус
+    // (resetFocus передаётся через ShowControlsEvent)
+    if (newState is ControlsVisiblePeekState &&
+        oldState is ControlsHiddenState) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _nav?.scheduleFocusRestore('play_pause_button');
+      });
+    }
+  }
+
+  // ==================== Публичные методы управления контролами ====================
+
+  /// Показать контролы (обёртка для ShowControlsEvent).
   void _showControls({bool resetFocus = false}) {
-    debugPrint('_showControls called: resetFocus=$resetFocus');
-    _hideTimer?.cancel();
-    _seekingOverlayTimer?.cancel();
-    if (!_controlsVisible && mounted) {
-      setState(() {
-        _controlsVisible = true;
-        _seekingOverlayVisible = false;
-      });
-      // Если нужно сбросить фокус, запланируем восстановление на initial элемент
-      if (resetFocus) {
-        debugPrint(
-          '_showControls: scheduling focus restore to play_pause_button',
-        );
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          _nav?.scheduleFocusRestore('play_pause_button');
-        });
-      }
-    }
-    _resetHideTimer();
+    _stateMachine.handleEvent(ShowControlsEvent(resetFocus: resetFocus));
   }
 
+  /// Скрыть контролы (обёртка для HideControlsEvent).
   void _hideControls() {
-    if (_controlsVisible && mounted) {
-      setState(() => _controlsVisible = false);
-    }
+    _stateMachine.handleEvent(const HideControlsEvent());
   }
 
-  void _resetHideTimer() {
-    _hideTimer?.cancel();
-    final delay = widget.autoHideDelay;
-    if (delay != null && delay != Duration.zero) {
-      _hideTimer = Timer(delay, () {
-        if (!mounted) return;
-        final status = widget.controller.currentPlayerStatus;
-        if (status is RhsPlayerStatusPaused) return;
-        // Не скрывать контролы, если открыто меню качества/саундтрека
-        if (_isMenuOpen) return;
-        // Не скрывать, пока фокус на карусели — перезапускаем таймер
-        if (_nav?.getFocusedItemId() == 'recommended_row_carousel') {
-          _resetHideTimer();
-          return;
-        }
-        _hideControls();
-      });
-    }
-  }
-
-  void _onMenuOpened() {
-    debugPrint('VideoControls: menu opened, canceling hide timer');
-    _hideTimer?.cancel();
-    setState(() => _isMenuOpen = true);
-  }
-
-  void _onMenuClosed() {
-    debugPrint('VideoControls: menu closed, resetting hide timer');
-    setState(() => _isMenuOpen = false);
-    _resetHideTimer();
-  }
-
+  /// Переключить видимость контролов (обёртка для ToggleControlsEvent).
   void _toggleControlsVisibility() {
-    if (_controlsVisible) {
-      _hideControls();
-    } else {
-      _showControls();
-    }
+    _stateMachine.handleEvent(const ToggleControlsEvent());
+  }
+
+  /// Меню открыто (обёртка для MenuOpenedEvent).
+  void _onMenuOpened() {
+    debugPrint('VideoControls: menu opened');
+    _stateMachine.handleEvent(const MenuOpenedEvent());
+  }
+
+  /// Меню закрыто (обёртка для MenuClosedEvent).
+  void _onMenuClosed() {
+    debugPrint('VideoControls: menu closed');
+    _stateMachine.handleEvent(const MenuClosedEvent());
   }
 
   Widget _buildBufferingOverlay() {
@@ -312,11 +356,19 @@ class _VideoControlsState extends State<VideoControls> {
 
   @override
   Widget build(BuildContext context) {
+    // Получаем текущее состояние и конфигурацию видимости из State Machine
+    final state = _stateMachine.currentState;
+    final config = state.visibilityConfig;
+
+    // Определяем, видны ли контролы (для Shortcuts и других проверок)
+    final isVisible =
+        state is! ControlsHiddenState && state is! SeekingOverlayState;
+
     return Stack(
       children: [
         _buildBufferingOverlay(),
         Shortcuts(
-          shortcuts: buildPlayerShortcuts(controlsVisible: _controlsVisible),
+          shortcuts: buildPlayerShortcuts(controlsVisible: isVisible),
           child: Actions(
             actions: <Type, Action<Intent>>{
               // Playback actions
@@ -333,10 +385,19 @@ class _VideoControlsState extends State<VideoControls> {
             },
             child: VideoControlsBuilder(
               initialFocusId: 'play_pause_button',
-              controlsVisible: _controlsVisible,
-              showProgressSlider: _controlsVisible || _seekingOverlayVisible,
+              // Передаём конфигурацию видимости из State Machine
+              controlsVisible: !config.excludeFromFocus,
+              showProgressSlider: config.showProgressSlider,
+              // Callback для получения навигационных колбэков
               onNavReady: (callbacks) => _nav = callbacks,
-              onControlsInteraction: _showControls,
+              // Взаимодействие с контролами -> сброс таймера
+              onControlsInteraction: () {
+                _stateMachine.handleEvent(const UserInteractionEvent());
+              },
+              // Изменение фокуса -> отправка события в State Machine
+              onFocusChanged: (itemId) {
+                _stateMachine.handleEvent(FocusChangedEvent(itemId));
+              },
               onToggleVisibilityRequested: _toggleControlsVisibility,
               onHideControlsWhenDownFromLastRow: _hideControls,
               carouselRowKey: _carouselRowKey,
@@ -442,10 +503,16 @@ class _VideoControlsState extends State<VideoControls> {
                         if (event is KeyDownEvent &&
                             (event.logicalKey == LogicalKeyboardKey.select ||
                                 event.logicalKey == LogicalKeyboardKey.enter)) {
+                          // Проверяем видимость контролов через State Machine
+                          final isVisible =
+                              _stateMachine.currentState
+                                  is! ControlsHiddenState &&
+                              _stateMachine.currentState
+                                  is! SeekingOverlayState;
                           debugPrint(
-                            'play_pause keyHandler: controlsVisible=$_controlsVisible',
+                            'play_pause keyHandler: controlsVisible=$isVisible',
                           );
-                          if (_controlsVisible) {
+                          if (isVisible) {
                             // Вызываем Action для переключения play/pause
                             Actions.maybeInvoke<TogglePlayPauseIntent>(
                               context,
@@ -540,31 +607,30 @@ class _VideoControlsState extends State<VideoControls> {
     );
   }
 
+  // ==================== Методы перемотки ====================
+
+  /// Перемотка назад на указанный шаг.
+  ///
+  /// Используется из:
+  /// - Приоритетного обработчика клавиш (_handlePriorityKey)
+  /// - Кнопок перемотки (ButtonItem с onPressedWithStep)
+  /// - ProgressSliderItem (при навигации стрелками)
   void _seekBackward(Duration step) {
-    _onSeekWhileControlsHidden();
     final newPosition = widget.controller.currentPosition - step;
     widget.controller.seekTo(
       newPosition > Duration.zero ? newPosition : Duration.zero,
     );
   }
 
+  /// Перемотка вперёд на указанный шаг.
+  ///
+  /// Используется из:
+  /// - Приоритетного обработчика клавиш (_handlePriorityKey)
+  /// - Кнопок перемотки (ButtonItem с onPressedWithStep)
+  /// - ProgressSliderItem (при навигации стрелками)
   void _seekForward(Duration step) {
-    _onSeekWhileControlsHidden();
     final newPosition = widget.controller.currentPosition + step;
     final duration = widget.controller.currentPositionData.duration;
     widget.controller.seekTo(newPosition < duration ? newPosition : duration);
-  }
-
-  /// При перемотке со скрытыми контролами показываем слайдер на время.
-  void _onSeekWhileControlsHidden() {
-    if (!_controlsVisible && mounted) {
-      _seekingOverlayTimer?.cancel();
-      setState(() => _seekingOverlayVisible = true);
-      _seekingOverlayTimer = Timer(const Duration(seconds: 2), () {
-        if (mounted) {
-          setState(() => _seekingOverlayVisible = false);
-        }
-      });
-    }
   }
 }

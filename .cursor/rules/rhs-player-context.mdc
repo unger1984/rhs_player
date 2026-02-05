@@ -5,18 +5,74 @@ alwaysApply: true
 
 # rhs_player — контекст проекта
 
-Flutter-плагин видеоплеера только для **Android**. Движок: нативный **ExoPlayer**, сетевой стриминг. Форк tha_player без iOS.
+Flutter-плагин видеоплеера только для **Android**. Движок: нативный **ExoPlayer** (androidx.media3), сетевой стриминг. Форк tha_player без iOS.
 
-**Стек:** Flutter (Dart), Android (Kotlin/ExoPlayer).
+## Стек
 
-**Фичи:** play/pause/seek/speed, выбор качества и аудиодорожки, DRM (Widevine, ClearKey), буферизация и retry, Android TV (фокус, навигация, подсветка), превью по VTT.
+- **Flutter (Dart)** — публичный API, RhsPlayerController, RhsPlayerView
+- **Android (Kotlin)** — ExoPlayer, PlatformView, MethodChannel/EventChannel
+- **Зависимости:** rxdart (BehaviorSubject), flutter_screenutil (example)
 
-**Сборка и запуск:** из корня `flutter pub get`; пример — `cd example && flutter run`. DRM на эмуляторе ненадёжен; для теста без DRM: `https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4`. Тесты: `flutter test` из корня.
+## Фичи
 
-**Стиль:** следовать `flutter_lints`. Документация — README.md (RU), пример использования — `example/lib/player_screen.dart`.
+- **Воспроизведение:** play/pause/seek/speed, repeat, BoxFit, плейлисты
+- **Треки:** выбор качества видео, аудиодорожек, субтитров (auto/manual)
+- **DRM:** Widevine, ClearKey с кастомными headers
+- **Надежность:** retry с экспоненциальной задержкой, автоматическая буферизация
+- **Android TV:** фокус-навигация D-pad, визуальное выделение, мышь + пульт одновременно (детали: README.md)
+- **Превью:** VTT миниатюры, буферизация на прогресс-баре
 
-**Ключевые файлы:**
+## Сборка и запуск
 
-- `lib/rhs_player.dart` — публичный API
-- `lib/src/player/player_controller.dart` — управление воспроизведением, источники, события
-- `android/src/main/kotlin/com/example/rhs_player/` — нативный Kotlin/ExoPlayer
+**Команды всегда с префиксом `fvm`** (см. [flutter-plugin-standards.mdc](flutter-plugin-standards.mdc)):
+
+```bash
+# Из корня проекта
+fvm flutter pub get
+fvm dart format .
+
+# Запуск примера
+cd example && fvm flutter run
+
+# Тесты
+fvm flutter test
+```
+
+**Тестирование:** DRM на эмуляторе может не работать. Для теста без DRM: `https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4`
+
+## Документация и примеры
+
+- **README.md** — полная документация API (RU)
+- **AGENTS.md** — критические архитектурные правила для AI
+- **Пример использования:**
+  - `example/lib/pages/player/player_page.dart` — интеграция плеера
+  - `example/lib/features/player/ui/player_view.dart` — PlayerView + VideoControls
+  - `example/lib/main.dart` — настройка приложения
+
+## Ключевые файлы
+
+### Плагин (lib/)
+
+- `lib/rhs_player.dart` — публичный API (экспорты)
+- `lib/src/player/player_controller.dart` — RhsPlayerController (play/pause/seek/tracks/streams)
+- `lib/src/player/player_view.dart` — RhsPlayerView (PlatformView wrapper)
+- `lib/src/media/media_source.dart` — RhsMediaSource (URL, headers, DRM)
+- `lib/src/playback/playback_state.dart`, `playback_events.dart` — состояния и события
+- `lib/src/tracks/track_models.dart`, `track_events.dart` — модели треков
+
+### Нативный код (android/)
+
+- `android/src/main/kotlin/com/example/rhs_player/` — ExoPlayer интеграция
+- `RhsPlayerPlugin.kt` — регистрация PlatformView
+- `RhsPlayerPlatformView.kt` — главный view с ExoPlayer
+- `RhsPlayerViewFactory.kt` — фабрика для создания view
+
+### Пример (example/lib/)
+
+- `example/lib/features/player/ui/controls/` — система контролов (детали: [player-controls-structure.mdc](player-controls-structure.mdc))
+- `example/lib/features/player/ui/controls/README.md` — подробная документация контролов
+- `example/lib/features/player/model/player_state.dart` — управление состоянием плеера
+
+## Стиль кода
+
+Следовать `flutter_lints` + [flutter-plugin-standards.mdc](flutter-plugin-standards.mdc). После правок: `fvm dart format .`

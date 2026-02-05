@@ -4,7 +4,14 @@ import 'package:rhs_player_example/features/player/ui/controls/core/control_row.
 import 'package:rhs_player_example/features/player/ui/controls/core/focusable_item.dart';
 import 'package:rhs_player_example/features/player/ui/controls/core/key_handling_result.dart';
 
-/// Менеджер навигации между элементами управления
+/// Менеджер навигации между элементами управления.
+///
+/// Использует Chain of Responsibility паттерн для обработки навигации.
+/// Управляет:
+/// - Навигацией между рядами (вверх/вниз)
+/// - Навигацией внутри ряда (влево/вправо)
+/// - Фокусом на элементах
+/// - Уведомлением об изменении фокуса (для State Machine)
 class NavigationManager {
   final List<ControlRow> _rows = [];
   List<ControlRow> get rows => _rows;
@@ -14,6 +21,11 @@ class NavigationManager {
   /// Вызывается при нажатии Вниз, когда фокус уже на последнем ряду (скрыть контролы).
   VoidCallback? _onDownFromLastRow;
   set onDownFromLastRow(VoidCallback? value) => _onDownFromLastRow = value;
+
+  /// Вызывается при изменении фокуса на элементе контролов.
+  /// Передаёт id элемента, на котором сейчас фокус (или null, если фокус вне контролов).
+  /// Используется для отправки FocusChangedEvent в State Machine.
+  void Function(String? itemId)? onFocusChanged;
 
   /// Фокус открытого оверлея (меню качества и т.п.). Пока он задан — не забираем фокус в контролы.
   FocusNode? _overlayFocusNode;
@@ -147,6 +159,8 @@ class NavigationManager {
     final targetItem = targetRow.items[targetItemIndex];
 
     targetItem.focusNode.requestFocus();
+    // Уведомляем об изменении фокуса
+    onFocusChanged?.call(targetItem.id);
     return KeyEventResult.handled;
   }
 
@@ -179,6 +193,8 @@ class NavigationManager {
     final targetItem = targetRow.items[targetItemIndex];
 
     targetItem.focusNode.requestFocus();
+    // Уведомляем об изменении фокуса
+    onFocusChanged?.call(targetItem.id);
     return KeyEventResult.handled;
   }
 
@@ -197,6 +213,8 @@ class NavigationManager {
 
     final targetItem = currentRow.items[targetItemIndex];
     targetItem.focusNode.requestFocus();
+    // Уведомляем об изменении фокуса
+    onFocusChanged?.call(targetItem.id);
     return KeyEventResult.handled;
   }
 
@@ -217,6 +235,8 @@ class NavigationManager {
 
     final targetItem = currentRow.items[targetItemIndex];
     targetItem.focusNode.requestFocus();
+    // Уведомляем об изменении фокуса
+    onFocusChanged?.call(targetItem.id);
     return KeyEventResult.handled;
   }
 
@@ -266,6 +286,8 @@ class NavigationManager {
       final item = _findItemById(preferredId);
       if (item != null) {
         item.focusNode.requestFocus();
+        // Уведомляем об изменении фокуса
+        onFocusChanged?.call(item.id);
         return;
       }
     }

@@ -76,6 +76,11 @@ class VideoControlsBuilder extends StatefulWidget {
   /// Вызывается при любом нажатии клавиши (для сброса таймера автоскрытия и показа контролов).
   final VoidCallback? onControlsInteraction;
 
+  /// Вызывается при изменении фокуса на элементе контролов.
+  /// Передаёт id элемента, на котором сейчас фокус (или null).
+  /// Используется для отправки FocusChangedEvent в State Machine.
+  final void Function(String? itemId)? onFocusChanged;
+
   /// Вызывается при нажатии Info/Menu для переключения видимости контролов.
   final VoidCallback? onToggleVisibilityRequested;
 
@@ -103,6 +108,7 @@ class VideoControlsBuilder extends StatefulWidget {
     this.showProgressSlider = true,
     this.onNavReady,
     this.onControlsInteraction,
+    this.onFocusChanged,
     this.onToggleVisibilityRequested,
     this.onSeekBackward,
     this.onSeekForward,
@@ -133,6 +139,9 @@ class _VideoControlsBuilderState extends State<VideoControlsBuilder> {
       onDownFromLastRow: widget.onHideControlsWhenDownFromLastRow,
     );
 
+    // Передаём callback изменения фокуса в NavigationManager
+    _navigationManager.onFocusChanged = widget.onFocusChanged;
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _navigationManager.requestInitialFocus();
       widget.onNavReady?.call((
@@ -152,6 +161,10 @@ class _VideoControlsBuilderState extends State<VideoControlsBuilder> {
         oldWidget.onHideControlsWhenDownFromLastRow) {
       _navigationManager.onDownFromLastRow =
           widget.onHideControlsWhenDownFromLastRow;
+    }
+    // Обновляем callback изменения фокуса
+    if (widget.onFocusChanged != oldWidget.onFocusChanged) {
+      _navigationManager.onFocusChanged = widget.onFocusChanged;
     }
     if (widget.rows != oldWidget.rows) {
       final idToRestore =

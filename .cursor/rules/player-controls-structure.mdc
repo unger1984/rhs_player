@@ -35,7 +35,8 @@
 **Элементы (слева → справа):**
 - Кнопка "Назад" — [`ButtonItem`](../../example/lib/features/player/ui/controls/items/button_item.dart) (`back_button`)
 - Заголовок фильма — опциональный параметр `title`
-- Селектор саундтрека — [`SoundtrackSelectorItem`](../../example/lib/features/player/ui/controls/items/soundtrack_selector_item.dart) (только при наличии аудиотреков)
+- Селектор саундтрека — [`SoundtrackSelectorItem`](../../example/lib/features/player/ui/controls/items/soundtrack_selector_item.dart) (при наличии аудиотреков)
+- Селектор субтитров — [`SubtitleSelectorItem`](../../example/lib/features/player/ui/controls/items/subtitle_selector_item.dart) (при наличии субтитров)
 
 **Параметры:**
 - Высота: `124.h`
@@ -114,6 +115,20 @@
 - `CircularProgressIndicator` (размер: `80.r × 80.r`)
 - Показывается при `RhsPlayerStatusLoading`
 - **Всегда поверх видео**, независимо от видимости контролов
+
+### Субтитры (кастомный оверлей)
+
+**Реализация:** [`SubtitleOverlay`](../../example/lib/features/player/ui/subtitle_overlay.dart)
+
+**Элементы:**
+- Полупрозрачная тёмная подложка со скруглёнными углами
+- Текст субтитров (1–3 строки) от ExoPlayer
+- Показывается при выбранной дорожке субтитров и наличии cue-текста
+
+**Позиция:** Зависит от состояния контролов (`controlsVisible`, `controlsExpanded`):
+- Скрыты: bottom 80 — субтитры опускаются ниже
+- Peek: bottom 360 — над контролами
+- Expanded: bottom 580 — выше полосы перемотки при раскрытой карусели
 
 ## State Machine — 6 состояний контролов
 

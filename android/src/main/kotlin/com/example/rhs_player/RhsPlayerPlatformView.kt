@@ -16,6 +16,8 @@ import androidx.media3.common.Player
 import androidx.media3.common.TrackSelectionParameters
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
+import androidx.media3.common.text.Cue
+import androidx.media3.common.text.CueGroup
 import androidx.media3.common.util.Util
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
@@ -50,9 +52,11 @@ class RhsPlayerPlatformView(
   private val channel: MethodChannel = MethodChannel(messenger, "rhsplayer/view_${viewId}")
   private val eventChannel: EventChannel = EventChannel(messenger, "rhsplayer/events_${viewId}")
   private val tracksEventChannel: EventChannel = EventChannel(messenger, "rhsplayer/tracks_${viewId}")
+  private val cuesEventChannel: EventChannel = EventChannel(messenger, "rhsplayer/cues_${viewId}")
   private val mainHandler = Handler(Looper.getMainLooper())
   private var eventsSink: EventChannel.EventSink? = null
   private var tracksEventsSink: EventChannel.EventSink? = null
+  private var cuesEventsSink: EventChannel.EventSink? = null
   private var progressRunnable: Runnable? = null
   private val controllerId: Long =
     (args?.get("controllerId") as? Number)?.toLong() ?: viewId.toLong()
@@ -71,6 +75,8 @@ class RhsPlayerPlatformView(
     sharedEntry.attachView(playerView)
     playerView.useController = false
     playerView.resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+    // Скрываем нативный SubtitleView — субтитры рисуются в Flutter
+    playerView.subtitleView?.visibility = View.GONE
 
     channel.setMethodCallHandler { call, result ->
       when (call.method) {
@@ -260,6 +266,12 @@ class RhsPlayerPlatformView(
           sendTracksEvent()
         }
       }
+
+      override fun onCues(cueGroup: CueGroup) {
+        mainHandler.post {
+          sendCuesEvent(cueGroup)
+        }
+      }
     })
 
     eventChannel.setStreamHandler(object: EventChannel.StreamHandler {
@@ -281,6 +293,16 @@ class RhsPlayerPlatformView(
       }
       override fun onCancel(arguments: Any?) {
         tracksEventsSink = null
+      }
+    })
+
+    cuesEventChannel.setStreamHandler(object: EventChannel.StreamHandler {
+      override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+        cuesEventsSink = events
+        sendCuesEvent(player.currentCues)
+      }
+      override fun onCancel(arguments: Any?) {
+        cuesEventsSink = null
       }
     })
   }
@@ -545,15 +567,31 @@ class RhsPlayerPlatformView(
     android.util.Log.e("RhsPlayer", "!!! ERROR: Track NOT FOUND !!!")
   }
 
+  private fun sendCuesEvent(cueGroup: CueGroup) {
+    val sink = cuesEventsSink ?: return
+    try {
+      val lines = mutableListOf<String>()
+      for (cue in cueGroup.cues) {
+        cue.text?.toString()?.trim()?.takeIf { it.isNotEmpty() }?.let { lines.add(it) }
+      }
+      val text = lines.joinToString("\n")
+      sink.success(mapOf("text" to text))
+    } catch (e: Exception) {
+      // Игнорируем
+    }
+  }
+
   /// Отправляет событие о текущих треках через EventChannel
   private fun sendTracksEvent() {
     val sink = tracksEventsSink ?: return
     try {
       val videoTracks = collectVideoTracks()
       val audioTracks = collectAudioTracks()
+      val subtitleTracks = collectSubtitleTracks()
       sink.success(mapOf(
         "video" to videoTracks,
-        "audio" to audioTracks
+        "audio" to audioTracks,
+        "subtitle" to subtitleTracks
       ))
     } catch (e: Exception) {
       // Игнорируем ошибки при отправке событий

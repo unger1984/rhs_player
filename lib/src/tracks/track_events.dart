@@ -20,6 +20,11 @@ class RhsNativeTracks {
   /// Уведомитель списка аудио треков
   final ValueNotifier<List<RhsAudioTrack>> audioTracks = ValueNotifier([]);
 
+  /// Уведомитель списка субтитров
+  final ValueNotifier<List<RhsSubtitleTrack>> subtitleTracks = ValueNotifier(
+    [],
+  );
+
   RhsNativeTracks(this.viewId) {
     _eventChannel = EventChannel('rhsplayer/tracks_$viewId');
   }
@@ -55,6 +60,15 @@ class RhsNativeTracks {
               .toList();
           audioTracks.value = tracks;
         }
+        if (evt.containsKey('subtitle')) {
+          final subtitle = evt['subtitle'] as List;
+          final tracks = subtitle
+              .map((e) => e is Map ? Map<dynamic, dynamic>.from(e) : null)
+              .whereType<Map<dynamic, dynamic>>()
+              .map(RhsSubtitleTrack.fromMap)
+              .toList();
+          subtitleTracks.value = tracks;
+        }
       } catch (e) {
         // Игнорируем ошибки парсинга
       }
@@ -66,5 +80,6 @@ class RhsNativeTracks {
     _sub?.cancel();
     videoTracks.dispose();
     audioTracks.dispose();
+    subtitleTracks.dispose();
   }
 }

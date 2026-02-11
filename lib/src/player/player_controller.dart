@@ -12,6 +12,7 @@ import '../playback/playback_state.dart';
 import '../playback/playback_options.dart';
 import '../tracks/track_models.dart';
 import '../tracks/track_events.dart';
+import '../tracks/subtitle_cue_events.dart';
 
 /// Мост между Flutter и нативной реализацией плеера.
 ///
@@ -45,6 +46,9 @@ class RhsPlayerController {
   /// Обработчик событий треков от ExoPlayer
   RhsNativeTracks? _tracks;
 
+  /// События субтитров (cue-текст)
+  RhsNativeSubtitleCues? _subtitleCues;
+
   /// Список отложенных слушателей треков (до создания view)
   final List<ValueChanged<List<RhsVideoTrack>>> _pendingVideoTracksListeners =
       [];
@@ -52,6 +56,9 @@ class RhsPlayerController {
   /// Список отложенных слушателей треков (до создания view)
   final List<ValueChanged<List<RhsAudioTrack>>> _pendingAudioTracksListeners =
       [];
+
+  final List<ValueChanged<List<RhsSubtitleTrack>>>
+  _pendingSubtitleTracksListeners = [];
 
   /// Флаг, что первоначальный список треков был загружен
   bool _initialTracksFetched = false;
@@ -149,6 +156,8 @@ class RhsPlayerController {
     if (_tracks != null) {
       _tracks!.dispose();
     }
+    _subtitleCues?.dispose();
+    _subtitleCues = null;
 
     _initialTracksFetched = false; // Сбрасываем флаг
 
@@ -161,6 +170,9 @@ class RhsPlayerController {
     final tracks = RhsNativeTracks(id);
     tracks.start();
     _tracks = tracks;
+
+    _subtitleCues = RhsNativeSubtitleCues(id);
+    _subtitleCues!.start();
 
     // Подписываем отложенных слушателей
     for (final listener in _pendingVideoTracksListeners) {
@@ -176,6 +188,13 @@ class RhsPlayerController {
       }
 
       tracks.audioTracks.addListener(valueChangedListener);
+    }
+    for (final listener in _pendingSubtitleTracksListeners) {
+      void valueChangedListener() {
+        listener(tracks.subtitleTracks.value);
+      }
+
+      tracks.subtitleTracks.addListener(valueChangedListener);
     }
 
     // Подписываемся на изменения состояния (включая ошибку)
@@ -340,13 +359,16 @@ class RhsPlayerController {
   /// Получает дорожки субтитров / титров.
   Future<List<RhsSubtitleTrack>> getSubtitleTracks() async {
     final raw = await _invokeResult<List<dynamic>>('getSubtitleTracks');
-    if (raw == null) return const [];
+    if (raw == null) {
+      _tracks?.subtitleTracks.value = [];
+      return const [];
+    }
     final tracks = raw
         .map((e) => e is Map ? Map<dynamic, dynamic>.from(e) : null)
         .whereType<Map<dynamic, dynamic>>()
         .map(RhsSubtitleTrack.fromMap)
         .toList();
-    // Уведомляем слушателей об изменении дорожек
+    _tracks?.subtitleTracks.value = tracks;
     _tracksSubject.add(null);
     return tracks;
   }
@@ -395,6 +417,8 @@ class RhsPlayerController {
     _stateSubscription?.cancel();
     _stateController?.close();
     _events?.dispose();
+    _subtitleCues?.dispose();
+    _subtitleCues = null;
     await _playerStatusSubject.close();
     await _positionDataSubject.close();
     await _bufferedPositionSubject.close();
@@ -411,6 +435,13 @@ class RhsPlayerController {
 
   /// Список аудио треков, обновляемый автоматически от ExoPlayer
   ValueNotifier<List<RhsAudioTrack>>? get audioTracks => _tracks?.audioTracks;
+
+  /// Список субтитров, обновляемый автоматически от ExoPlayer
+  ValueNotifier<List<RhsSubtitleTrack>>? get subtitleTracks =>
+      _tracks?.subtitleTracks;
+
+  /// Текущий текст субтитров (cue) для кастомного отображения
+  ValueNotifier<String>? get subtitleCues => _subtitleCues?.currentText;
 
   /// Последний выбранный ID трека видео (для восстановления состояния после пересоздания виджета)
   String? get selectedVideoTrackId => _selectedVideoTrackId;
@@ -484,6 +515,25 @@ class RhsPlayerController {
 
     notifier.addListener(valueChangedListener);
 
+    return () => notifier.removeListener(valueChangedListener);
+  }
+
+  /// Добавляет слушатель списка субтитров.
+  /// Событие сработает после загрузки видео и при каждом изменении списка.
+  VoidCallback addSubtitleTracksListener(
+    ValueChanged<List<RhsSubtitleTrack>> listener,
+  ) {
+    final notifier = _tracks?.subtitleTracks;
+    if (notifier == null) {
+      _pendingSubtitleTracksListeners.add(listener);
+      return () => _pendingSubtitleTracksListeners.remove(listener);
+    }
+
+    void valueChangedListener() {
+      listener(notifier.value);
+    }
+
+    notifier.addListener(valueChangedListener);
     return () => notifier.removeListener(valueChangedListener);
   }
 

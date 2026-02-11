@@ -207,6 +207,20 @@ SoundtrackSelectorItem(
 )
 ```
 
+### `SubtitleSelectorItem`
+
+Селектор субтитров (аналогично `SoundtrackSelectorItem`). Пункт «Выкл» + список дорожек.
+
+```dart
+SubtitleSelectorItem(
+  controller: controller,
+  focusNode: focusNode,
+  onRegisterOverlayFocus: (node) => _overlayFocusNode = node,
+  onMenuOpened: () => _stateMachine.handleEvent(MenuOpenedEvent()),
+  onMenuClosed: () => _stateMachine.handleEvent(MenuClosedEvent()),
+)
+```
+
 ### `CustomWidgetItem`
 
 Кастомный виджет с гибкой обработкой клавиш.

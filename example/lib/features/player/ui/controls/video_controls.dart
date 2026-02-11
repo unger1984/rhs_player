@@ -15,6 +15,7 @@ import 'package:rhs_player_example/features/player/ui/controls/items/button_item
 import 'package:rhs_player_example/features/player/ui/controls/items/custom_widget_item.dart';
 import 'package:rhs_player_example/features/player/ui/controls/items/quality_selector_item.dart';
 import 'package:rhs_player_example/features/player/ui/controls/items/soundtrack_selector_item.dart';
+import 'package:rhs_player_example/features/player/ui/controls/items/subtitle_selector_item.dart';
 import 'package:rhs_player_example/features/player/ui/controls/items/progress_slider_item.dart';
 import 'package:rhs_player_example/features/player/ui/controls/rows/full_width_row.dart';
 import 'package:rhs_player_example/features/player/ui/controls/rows/recommended_carousel_row.dart';
@@ -23,6 +24,7 @@ import 'package:rhs_player_example/features/player/ui/controls/rows/top_bar_row.
 import 'package:rhs_player_example/features/player/ui/controls/state/controls_event.dart';
 import 'package:rhs_player_example/features/player/ui/controls/state/controls_state.dart';
 import 'package:rhs_player_example/features/player/ui/controls/state/controls_state_machine.dart';
+import 'package:rhs_player_example/features/player/ui/controls/state/controls_visibility_config.dart';
 import 'package:rhs_player_example/features/player/ui/controls/state/state_config.dart';
 import 'package:rhs_player_example/shared/ui/theme/app_durations.dart';
 
@@ -52,6 +54,12 @@ class VideoControls extends StatefulWidget {
   /// Вызывается при нажатии UI-кнопки «Назад» (всегда выход с экрана, без скрытия контролов).
   final VoidCallback? onBackButtonPressed;
 
+  /// Вызывается при скрытии/показе контролов (для позиции субтитров).
+  final void Function(bool visible)? onControlsVisibilityChanged;
+
+  /// Вызывается при переходе карусели peek ↔ expanded (для сдвига субтитров).
+  final void Function(bool expanded)? onControlsExpandedChanged;
+
   const VideoControls({
     super.key,
     required this.controller,
@@ -64,6 +72,8 @@ class VideoControls extends StatefulWidget {
     this.autoHideDelay = const Duration(seconds: 5),
     this.registerBackHandler,
     this.onBackButtonPressed,
+    this.onControlsVisibilityChanged,
+    this.onControlsExpandedChanged,
   });
 
   @override
@@ -93,6 +103,10 @@ class _VideoControlsState extends State<VideoControls> {
   /// Показывать кнопку саундтрека только при наличии аудиотреков.
   bool _hasAudioTracks = false;
   VoidCallback? _removeAudioTracksListener;
+
+  /// Показывать кнопку субтитров при наличии субтитров.
+  bool _hasSubtitleTracks = false;
+  VoidCallback? _removeSubtitleTracksListener;
 
   // ==================== Статус плеера ====================
 
@@ -152,6 +166,14 @@ class _VideoControlsState extends State<VideoControls> {
         setState(() => _hasAudioTracks = tracks.isNotEmpty);
       }
     });
+
+    _removeSubtitleTracksListener = widget.controller.addSubtitleTracksListener(
+      (tracks) {
+        if (mounted) {
+          setState(() => _hasSubtitleTracks = tracks.isNotEmpty);
+        }
+      },
+    );
 
     // ==================== Аппаратная кнопка Back ====================
 
@@ -285,6 +307,7 @@ class _VideoControlsState extends State<VideoControls> {
     _removeStatusListener?.call();
     _removeVideoTracksListener?.call();
     _removeAudioTracksListener?.call();
+    _removeSubtitleTracksListener?.call();
 
     super.dispose();
   }
@@ -297,6 +320,20 @@ class _VideoControlsState extends State<VideoControls> {
   /// Фокус при показе контролов восстанавливается в билдере по _focusedIdBeforeHide ?? initialFocusId.
   void _handleStateTransition(ControlsState oldState, ControlsState newState) {
     log('State transition: $oldState → $newState');
+    final wasVisible =
+        oldState is! ControlsHiddenState && oldState is! SeekingOverlayState;
+    final isVisible =
+        newState is! ControlsHiddenState && newState is! SeekingOverlayState;
+    if (wasVisible != isVisible) {
+      widget.onControlsVisibilityChanged?.call(isVisible);
+    }
+    final wasExpanded =
+        oldState.visibilityConfig.carouselMode == CarouselMode.expanded;
+    final isExpanded =
+        newState.visibilityConfig.carouselMode == CarouselMode.expanded;
+    if (wasExpanded != isExpanded) {
+      widget.onControlsExpandedChanged?.call(isExpanded);
+    }
   }
 
   // ==================== Публичные методы управления контролами ====================
@@ -428,21 +465,32 @@ class _VideoControlsState extends State<VideoControls> {
                       ),
                     ),
                   ],
-                  rightItems: _hasAudioTracks
-                      ? [
-                          CustomWidgetItem(
-                            id: 'soundtrack_selector',
-                            builder: (focusNode) => SoundtrackSelectorItem(
-                              controller: widget.controller,
-                              focusNode: focusNode,
-                              onRegisterOverlayFocus:
-                                  _nav?.registerOverlayFocusNode,
-                              onMenuOpened: _onMenuOpened,
-                              onMenuClosed: _onMenuClosed,
-                            ),
-                          ),
-                        ]
-                      : [],
+                  rightItems: [
+                    if (_hasAudioTracks)
+                      CustomWidgetItem(
+                        id: 'soundtrack_selector',
+                        builder: (focusNode) => SoundtrackSelectorItem(
+                          controller: widget.controller,
+                          focusNode: focusNode,
+                          onRegisterOverlayFocus:
+                              _nav?.registerOverlayFocusNode,
+                          onMenuOpened: _onMenuOpened,
+                          onMenuClosed: _onMenuClosed,
+                        ),
+                      ),
+                    if (_hasSubtitleTracks)
+                      CustomWidgetItem(
+                        id: 'subtitle_selector',
+                        builder: (focusNode) => SubtitleSelectorItem(
+                          controller: widget.controller,
+                          focusNode: focusNode,
+                          onRegisterOverlayFocus:
+                              _nav?.registerOverlayFocusNode,
+                          onMenuOpened: _onMenuOpened,
+                          onMenuClosed: _onMenuClosed,
+                        ),
+                      ),
+                  ],
                 ),
                 FullWidthRow(
                   id: 'progress_row',

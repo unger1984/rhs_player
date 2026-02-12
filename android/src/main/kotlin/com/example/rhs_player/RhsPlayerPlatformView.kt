@@ -74,6 +74,9 @@ class RhsPlayerPlatformView(
     player = sharedEntry.player
     sharedEntry.attachView(playerView)
     playerView.useController = false
+    playerView.controllerShowTimeoutMs = 0
+    playerView.controllerHideOnTouch = false
+    playerView.setShowBuffering(PlayerView.SHOW_BUFFERING_NEVER)
     playerView.resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
     // Скрываем нативный SubtitleView — субтитры рисуются в Flutter
     playerView.subtitleView?.visibility = View.GONE

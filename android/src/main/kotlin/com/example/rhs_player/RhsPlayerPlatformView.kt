@@ -77,9 +77,27 @@ class RhsPlayerPlatformView(
     playerView.controllerShowTimeoutMs = 0
     playerView.controllerHideOnTouch = false
     playerView.setShowBuffering(PlayerView.SHOW_BUFFERING_NEVER)
+    playerView.setKeepContentOnPlayerReset(true)
+    playerView.setShutterBackgroundColor(android.graphics.Color.TRANSPARENT)
     playerView.resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
     // Скрываем нативный SubtitleView — субтитры рисуются в Flutter
     playerView.subtitleView?.visibility = View.GONE
+    
+    // Скрываем все служебные view элементы ExoPlayer (artwork, error message и т.д.)
+    try {
+      val artworkView = playerView.javaClass.getDeclaredField("artworkView")
+      artworkView.isAccessible = true
+      (artworkView.get(playerView) as? View)?.visibility = View.GONE
+    } catch (e: Exception) {
+      // Ignore if field doesn't exist
+    }
+    try {
+      val errorMessageView = playerView.javaClass.getDeclaredField("errorMessageView")
+      errorMessageView.isAccessible = true
+      (errorMessageView.get(playerView) as? View)?.visibility = View.GONE
+    } catch (e: Exception) {
+      // Ignore if field doesn't exist
+    }
 
     channel.setMethodCallHandler { call, result ->
       when (call.method) {

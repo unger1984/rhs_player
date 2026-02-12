@@ -48,7 +48,10 @@ class RhsPlayerPlatformView(
   args: Map<*, *>?,
 ) : PlatformView {
   private val container: FrameLayout = FrameLayout(context)
-  private val playerView: PlayerView = PlayerView(context)
+  private val playerView: PlayerView = PlayerView(context).apply {
+    // КРИТИЧНО: отключаем контролы сразу при создании
+    useController = false
+  }
   private val channel: MethodChannel = MethodChannel(messenger, "rhsplayer/view_${viewId}")
   private val eventChannel: EventChannel = EventChannel(messenger, "rhsplayer/events_${viewId}")
   private val tracksEventChannel: EventChannel = EventChannel(messenger, "rhsplayer/tracks_${viewId}")
@@ -72,7 +75,7 @@ class RhsPlayerPlatformView(
     playbackOptions = PlaybackOptions.fromMap(args?.get("playbackOptions") as? Map<*, *>)
     sharedEntry = SharedPlayerRegistry.acquire(context, controllerId, playbackOptions, args)
     player = sharedEntry.player
-    sharedEntry.attachView(playerView)
+    // КРИТИЧЕСКИ ВАЖНО: отключаем контролы ДО attachView
     playerView.useController = false
     playerView.controllerShowTimeoutMs = 0
     playerView.controllerHideOnTouch = false
@@ -98,6 +101,18 @@ class RhsPlayerPlatformView(
     } catch (e: Exception) {
       // Ignore if field doesn't exist
     }
+    try {
+      val controller = playerView.javaClass.getDeclaredField("controller")
+      controller.isAccessible = true
+      (controller.get(playerView) as? View)?.visibility = View.GONE
+    } catch (e: Exception) {
+      // Ignore if field doesn't exist
+    }
+    
+    // Прячем контролы явно (если они появились)
+    playerView.hideController()
+    
+    sharedEntry.attachView(playerView)
 
     channel.setMethodCallHandler { call, result ->
       when (call.method) {

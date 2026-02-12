@@ -1,6 +1,6 @@
 name: rhs_player
 description: "Native network-only video player with custom Android (ExoPlayer) engine."
-version: 0.5.2
+version: 0.5.3
 homepage: https://github.com/unger1984/rhs_player
 repository: https://github.com/unger1984/rhs_player
 issue_tracker: https://github.com/unger1984/rhs_player/issues

@@ -1,6 +1,8 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:rhs_player/rhs_player.dart';
 import 'package:rhs_player_example/entities/media/model/media_item.dart';
 
 /// Репозиторий для работы с медиа-контентом.
@@ -18,6 +20,9 @@ class MediaRepository {
         final map = e as Map<String, dynamic>;
         final link = map['link'] as String? ?? '';
         final drmUrl = map['drm'] as String?;
+        final drmType = _parseDrmType(map['drmType'] as String?, drmUrl);
+        if (!_isSupportedOnCurrentPlatform(drmType)) continue;
+        final drmCertificateUrl = map['certificate'] as String?;
         final title = map['title'] as String? ?? '';
 
         // Генерируем ID из URL для уникальности
@@ -31,6 +36,8 @@ class MediaRepository {
             drmLicenseUrl: (drmUrl != null && drmUrl.isNotEmpty)
                 ? drmUrl
                 : null,
+            drmType: drmType,
+            drmCertificateUrl: drmCertificateUrl,
           ),
         );
       }
@@ -40,5 +47,22 @@ class MediaRepository {
       // В продакшене здесь должна быть более продвинутая обработка ошибок
       throw Exception('Failed to load media items: $e\n$st');
     }
+  }
+
+  RhsDrmType _parseDrmType(String? value, String? licenseUrl) {
+    if (value == 'fairPlay') return RhsDrmType.fairPlay;
+    if (value == 'clearKey') return RhsDrmType.clearKey;
+    if (licenseUrl?.isNotEmpty == true) return RhsDrmType.widevine;
+    return RhsDrmType.none;
+  }
+
+  bool _isSupportedOnCurrentPlatform(RhsDrmType drmType) {
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      return drmType == RhsDrmType.fairPlay || drmType == RhsDrmType.none;
+    }
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      return drmType != RhsDrmType.fairPlay;
+    }
+    return drmType == RhsDrmType.none;
   }
 }

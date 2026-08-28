@@ -40,6 +40,12 @@ class RhsPlayerController {
   /// Канал связи с нативным кодом
   MethodChannel? _channel;
 
+  /// Источник, выбранный до создания нативного представления.
+  RhsMediaSource? _pendingMediaSource;
+
+  /// Режим автозапуска для отложенного источника.
+  bool? _pendingMediaSourceAutoPlay;
+
   /// Обработчик событий нативного плеера
   RhsNativeEvents? _events;
 
@@ -216,6 +222,14 @@ class RhsPlayerController {
       _positionDataSubject.add(RhsPositionData(state.position, state.duration));
       _bufferedPositionSubject.add(state.bufferedPosition);
     });
+
+    final pendingSource = _pendingMediaSource;
+    if (pendingSource != null) {
+      final pendingAutoPlay = _pendingMediaSourceAutoPlay ?? autoPlay;
+      _pendingMediaSource = null;
+      _pendingMediaSourceAutoPlay = null;
+      unawaited(_sendMediaSource(pendingSource, pendingAutoPlay));
+    }
   }
 
   void _updatePlayerStatus(RhsPlaybackState state) {
@@ -400,6 +414,16 @@ class RhsPlayerController {
     _wasPlaying = shouldPlay;
     _resumePositionMs = 0; // Сбрасываем позицию
 
+    if (_channel == null) {
+      _pendingMediaSource = source;
+      _pendingMediaSourceAutoPlay = shouldPlay;
+      return;
+    }
+
+    await _sendMediaSource(source, shouldPlay);
+  }
+
+  Future<void> _sendMediaSource(RhsMediaSource source, bool shouldPlay) async {
     await _invoke('loadMediaSource', {
       'source': {
         'url': source.url,

@@ -104,7 +104,7 @@ final class RhsPlayerView: NSObject, FlutterPlatformView, @unchecked Sendable {
     isDisposed = true
     shouldBePlaying = false
     player.pause()
-    player.replaceCurrentItem(with: nil)
+    replaceCurrentItem(with: nil)
     fairPlayLoader = nil
     progressTimer?.invalidate()
     progressTimer = nil
@@ -345,11 +345,16 @@ final class RhsPlayerView: NSObject, FlutterPlatformView, @unchecked Sendable {
     currentHeaders = RhsValue.stringMap(source["headers"])
     guard let asset = createAsset(url: url, source: source) else { return }
     let item = AVPlayerItem(asset: asset)
-    item.add(legibleOutput)
-    player.replaceCurrentItem(with: item)
+    replaceCurrentItem(with: item)
     applyPreferredBitrate()
     observe(item)
     seekAndStart(item: item, positionMs: startPositionMs, autoPlay: autoPlay)
+  }
+
+  private func replaceCurrentItem(with item: AVPlayerItem?) {
+    player.currentItem?.remove(legibleOutput)
+    item?.add(legibleOutput)
+    player.replaceCurrentItem(with: item)
   }
 
   private func createAsset(url: URL, source: [String: Any]) -> AVURLAsset? {

@@ -1,7 +1,9 @@
 [
   {
-    "link": "https://user67561.nowcdn.co/done/",
-    "drm": "https://",
-    "title": "Big Buck Bunny"
+    "link": "https://p63022.nowcdn.co/done/cbcs/bbc11979b3f3ae1bfa020a157eebc0467c609e98/master.m3u8",
+    "drm": "https://drm93075.nowdrm.co/fairplay",
+    "drmType": "fairPlay",
+    "certificate": "https://cdn.playernow.ru/pronow.der",
+    "title": "FairPlay CBCS (iOS)"
   }
 ]

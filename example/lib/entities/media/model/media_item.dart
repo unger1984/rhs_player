@@ -18,6 +18,12 @@ class MediaItem {
   /// URL лицензии DRM (Widevine)
   final String? drmLicenseUrl;
 
+  /// Тип DRM для источника.
+  final RhsDrmType drmType;
+
+  /// URL сертификата FairPlay.
+  final String? drmCertificateUrl;
+
   /// Виджет постера/превью (опционально)
   final Widget? poster;
 
@@ -26,15 +32,23 @@ class MediaItem {
     required this.title,
     required this.url,
     this.drmLicenseUrl,
+    this.drmType = RhsDrmType.none,
+    this.drmCertificateUrl,
     this.poster,
   });
 
   /// Преобразование в RhsMediaSource для плеера.
   RhsMediaSource toMediaSource() {
+    final licenseUrl = drmLicenseUrl;
+    final hasDrm = drmType != RhsDrmType.none && licenseUrl?.isNotEmpty == true;
     return RhsMediaSource(
       url,
-      drm: drmLicenseUrl != null && drmLicenseUrl!.isNotEmpty
-          ? RhsDrmConfig(type: RhsDrmType.widevine, licenseUrl: drmLicenseUrl!)
+      drm: hasDrm
+          ? RhsDrmConfig(
+              type: drmType,
+              licenseUrl: licenseUrl,
+              certificateUrl: drmCertificateUrl,
+            )
           : const RhsDrmConfig(type: RhsDrmType.none),
     );
   }

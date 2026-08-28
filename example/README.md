@@ -6,8 +6,12 @@ This example shows how to use the native player with modern controls.
 
 ```
 cd example
+cp films_sample.json films.json
 flutter run
 ```
+
+На iOS example показывает HLS/FairPlay и открытые источники, а на Android —
+Widevine/ClearKey и открытые источники. Несовместимые DRM-варианты фильтруются.
 
 ## Quick Start Snippet
 

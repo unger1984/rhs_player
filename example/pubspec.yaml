@@ -1,6 +1,7 @@
 name: rhs_player_example
 description: "Demonstrates how to use the rhs_player plugin."
 publish_to: "none" # Remove this line if you wish to publish to pub.dev
+version: 1.0.0+1
 
 environment:
   sdk: ^3.8.1

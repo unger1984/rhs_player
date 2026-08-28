@@ -26,7 +26,7 @@
 
 ```yaml
 dependencies:
-  rhs_player: ^0.5.0
+  rhs_player: ^0.6.0
 ```
 
 ```bash
@@ -160,6 +160,36 @@ RhsMediaSource(
 `contentId` можно задать явно. Если он не указан, iOS берёт hostname из
 `skd://` URI в HLS-манифесте. `headers` отправляются при загрузке сертификата
 и лицензии.
+
+Если сервер отдаёт разные потоки для Android и iOS, выберите источник в
+приложении перед созданием контроллера:
+
+```dart
+import 'package:flutter/foundation.dart';
+import 'package:rhs_player/rhs_player.dart';
+
+final source = defaultTargetPlatform == TargetPlatform.iOS
+    ? const RhsMediaSource(
+        'https://example.com/video/master.m3u8',
+        drm: RhsDrmConfig(
+          type: RhsDrmType.fairPlay,
+          licenseUrl: 'https://example.com/fairplay',
+          certificateUrl: 'https://example.com/certificate.der',
+        ),
+      )
+    : const RhsMediaSource(
+        'https://example.com/video/manifest.mpd',
+        drm: RhsDrmConfig(
+          type: RhsDrmType.widevine,
+          licenseUrl: 'https://example.com/widevine',
+        ),
+      );
+
+final controller = RhsPlayerController.single(source);
+
+// Для следующего ролика снова выберите источник для текущей платформы.
+await controller.loadMediaSource(nextSource);
+```
 
 ### RhsPlaybackOptions
 

@@ -26,7 +26,7 @@
 
 ```yaml
 dependencies:
-  rhs_player: ^0.6.0
+  rhs_player: ^0.7.0
 ```
 
 ```bash

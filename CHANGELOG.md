@@ -1,3 +1,9 @@
+## 0.6.0
+
+- Added native iOS playback with AVPlayer and AVPlayerLayer
+- Added FairPlay Streaming support for CBCS-HLS with PlayerNow SPC/CKC exchange
+- Added iOS playback, buffering, track, subtitle cue, playlist, retry, and PiP channels
+
 ## 0.5.0
 
 - Project renamed to rhs_player

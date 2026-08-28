@@ -5,19 +5,20 @@ alwaysApply: true
 
 # rhs_player — контекст проекта
 
-Flutter-плагин видеоплеера только для **Android**. Движок: нативный **ExoPlayer** (androidx.media3), сетевой стриминг. Форк tha_player без iOS.
+Flutter-плагин сетевого видеоплеера для **Android** и **iOS**. Движки: нативные **ExoPlayer** (androidx.media3) и **AVPlayer**. Форк tha_player.
 
 ## Стек
 
 - **Flutter (Dart)** — публичный API, RhsPlayerController, RhsPlayerView
 - **Android (Kotlin)** — ExoPlayer, PlatformView, MethodChannel/EventChannel
+- **iOS (Swift)** — AVPlayer, AVPlayerLayer, PlatformView, MethodChannel/EventChannel
 - **Зависимости:** rxdart (BehaviorSubject), flutter_screenutil (example)
 
 ## Фичи
 
 - **Воспроизведение:** play/pause/seek/speed, repeat, BoxFit, плейлисты
 - **Треки:** выбор качества видео, аудиодорожек, субтитров (auto/manual)
-- **DRM:** Widevine, ClearKey с кастомными headers
+- **DRM:** Widevine/ClearKey на Android, FairPlay Streaming на iOS
 - **Надежность:** retry с экспоненциальной задержкой, автоматическая буферизация
 - **Android TV:** фокус-навигация D-pad, визуальное выделение, мышь + пульт одновременно (детали: README.md)
 - **Превью:** VTT миниатюры, буферизация на прогресс-баре
@@ -66,6 +67,12 @@ fvm flutter test
 - `RhsPlayerPlugin.kt` — регистрация PlatformView
 - `RhsPlayerPlatformView.kt` — главный view с ExoPlayer
 - `RhsPlayerViewFactory.kt` — фабрика для создания view
+
+### Нативный код (ios/)
+
+- `ios/rhs_player/Sources/rhs_player/RhsPlayerPlugin.swift` — регистрация каналов и PlatformView
+- `ios/rhs_player/Sources/rhs_player/RhsPlayerView.swift` — AVPlayer, события, треки и PiP
+- `ios/rhs_player/Sources/rhs_player/RhsFairPlayResourceLoader.swift` — обмен SPC/CKC для FairPlay
 
 ### Пример (example/lib/)
 

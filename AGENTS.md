@@ -21,9 +21,8 @@ This file provides guidance to agents when working with code in this repository.
 
 ## Project Overview
 
-- **rhs_player**: Android-only Flutter video player plugin using ExoPlayer
-- **Architecture**: Thin Flutter wrapper over Android ExoPlayer (Media3)
-- **No iOS support**: iOS code has been removed entirely
+- **rhs_player**: Flutter video player plugin for Android and iOS
+- **Architecture**: Thin Flutter wrapper over ExoPlayer (Android) and AVPlayer (iOS)
 
 ## Critical Architecture Rules (MANDATORY)
 
@@ -31,7 +30,7 @@ This file provides guidance to agents when working with code in this repository.
 
 - 1 Controller = 1 native player (strict 1:1 mapping)
 - All logic lives in Controller, no state in Widget
-- Use TextureRegistry only (no SurfaceView / PlatformView for video)
+- Use the registered native PlatformView; the controller remains the sole owner of state
 
 ### Android
 
@@ -39,6 +38,13 @@ This file provides guidance to agents when working with code in this repository.
 - No singleton ExoPlayer instances
 - Explicit lifecycle: create → release
 - SharedPlayerRegistry manages player instances with reference counting
+
+### iOS
+
+- Use AVPlayer + AVPlayerLayer only
+- FairPlay is supported for CBCS-HLS through `RhsDrmType.fairPlay`
+- Widevine and ClearKey remain Android-only
+- FairPlay certificate and content keys must not be persisted by the plugin
 
 ## Non-Standard Patterns
 

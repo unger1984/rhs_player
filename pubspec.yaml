@@ -1,6 +1,6 @@
 name: rhs_player
-description: "Native network-only video player with custom Android (ExoPlayer) engine."
-version: 0.5.3
+description: "Native network-only video player with Android ExoPlayer and iOS AVPlayer engines."
+version: 0.6.0
 homepage: https://github.com/unger1984/rhs_player
 repository: https://github.com/unger1984/rhs_player
 issue_tracker: https://github.com/unger1984/rhs_player/issues
@@ -32,6 +32,8 @@ flutter:
     platforms:
       android:
         package: com.example.rhs_player
+        pluginClass: RhsPlayerPlugin
+      ios:
         pluginClass: RhsPlayerPlugin
 
   # assets:

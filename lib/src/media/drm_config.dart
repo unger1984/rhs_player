@@ -8,11 +8,15 @@ enum RhsDrmType {
 
   /// ClearKey DRM (открытый ключ)
   clearKey,
+
+  /// Apple FairPlay Streaming для CBCS-HLS на iOS.
+  fairPlay,
 }
 
 /// Набор конфигурации DRM, передаваемый движку нативного плеера.
 ///
-/// Объект конфигурации используется на Android (Widevine / ClearKey).
+/// Объект конфигурации используется на Android (Widevine / ClearKey)
+/// и iOS (FairPlay Streaming).
 /// Значения передаются без изменений, поэтому форматы заголовков и токенов,
 /// специфичные для провайдера, могут использоваться без модификации.
 class RhsDrmConfig {
@@ -34,6 +38,10 @@ class RhsDrmConfig {
   /// Дополнительный идентификатор контента, используемый некоторыми серверами лицензий.
   final String? contentId;
 
+  /// URL DER-сертификата FairPlay Application Certificate.
+  /// Используется только при [type] == [RhsDrmType.fairPlay].
+  final String? certificateUrl;
+
   /// Создает конфигурацию DRM.
   const RhsDrmConfig({
     required this.type,
@@ -41,6 +49,7 @@ class RhsDrmConfig {
     this.headers,
     this.clearKey,
     this.contentId,
+    this.certificateUrl,
   });
 
   /// Указывает, включена ли DRM для текущего медиа.
@@ -48,5 +57,5 @@ class RhsDrmConfig {
 
   @override
   String toString() =>
-      'RhsDrmConfig(type: $type, licenseUrl: $licenseUrl, hasHeaders: ${headers?.isNotEmpty == true}, contentId: $contentId, clearKey: ${clearKey != null ? "***" : null})';
+      'RhsDrmConfig(type: $type, licenseUrl: $licenseUrl, certificateUrl: $certificateUrl, hasHeaders: ${headers?.isNotEmpty == true}, contentId: $contentId, clearKey: ${clearKey != null ? "***" : null})';
 }

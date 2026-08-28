@@ -252,6 +252,7 @@ class RhsPlayerController {
     'headers': drm.headers ?? {},
     'clearKey': drm.clearKey,
     'contentId': drm.contentId,
+    'certificateUrl': drm.certificateUrl,
   };
 
   /// Начинает воспроизведение, если готов.

@@ -1,6 +1,6 @@
-# rhs_player (Android)
+# rhs_player
 
-Нативный видеоплеер для Flutter только для сетевых источников. Использует ExoPlayer на Android. Только Android, поддержка iOS удалена.
+Нативный видеоплеер для Flutter только для сетевых источников. Использует ExoPlayer на Android и AVPlayer на iOS.
 
 Форк [tha_player](https://github.com/thethtwe-dev/tha_player).
 
@@ -8,13 +8,13 @@
 
 ## Возможности
 
-- ExoPlayer (Android)
+- ExoPlayer (Android) и AVPlayer (iOS)
 - Воспроизведение / пауза, перемотка, скорость, полноэкранный режим
 - BoxFit (contain, cover, fill, fitWidth, fitHeight)
 - Выбор качества видео, аудиодорожек
 - Единое состояние: позиция, буфер, ошибка в одном потоке
 - Индикатор буферизации на прогресс-баре (как в YouTube)
-- DRM: Widevine, ClearKey
+- DRM: Widevine/ClearKey на Android, FairPlay Streaming на iOS
 - Опции повторных попыток и буферизации
 - **Поддержка Android TV пульта** — фокус-навигация с визуальным выделением
 
@@ -129,6 +129,8 @@ AspectRatio(
 
 ### DRM
 
+Widevine и ClearKey поддерживаются только на Android:
+
 ```dart
 RhsMediaSource(
   'https://example.com/manifest.mpd',
@@ -140,6 +142,25 @@ RhsMediaSource(
 )
 ```
 
+FairPlay для CBCS-HLS поддерживается только на iOS. License endpoint PlayerNow
+должен принимать JSON `content_id`/`spc_message` и возвращать `ckc_message`:
+
+```dart
+RhsMediaSource(
+  'https://p63022.nowcdn.co/done/cbcs/'
+  'bbc11979b3f3ae1bfa020a157eebc0467c609e98/master.m3u8',
+  drm: const RhsDrmConfig(
+    type: RhsDrmType.fairPlay,
+    licenseUrl: 'https://drm93075.nowdrm.co/fairplay',
+    certificateUrl: 'https://cdn.playernow.ru/pronow.der',
+  ),
+)
+```
+
+`contentId` можно задать явно. Если он не указан, iOS берёт hostname из
+`skd://` URI в HLS-манифесте. `headers` отправляются при загрузке сертификата
+и лицензии.
+
 ### RhsPlaybackOptions
 
 - `maxRetryCount` — макс. число повторных попыток
@@ -149,9 +170,21 @@ RhsMediaSource(
 
 ---
 
-## Платформа
+## Платформы
 
-Только Android (ExoPlayer). iOS не поддерживается.
+| Возможность | Android | iOS |
+|---|---|---|
+| Движок | ExoPlayer | AVPlayer |
+| MP4 / HLS | Да | Да |
+| DASH | Да | Нет (ограничение AVPlayer) |
+| Widevine / ClearKey | Да | Нет |
+| FairPlay CBCS-HLS | Нет | Да |
+| Аудио и субтитры | Да | Да |
+| PiP | Да | Да, при включённых Background Modes в приложении |
+
+AVPlayer не предоставляет полный список вариантов HLS заранее, поэтому на iOS
+список качества формируется из уже наблюдавшихся битрейтов. `fitWidth` и
+`fitHeight` на iOS отображаются как `contain`.
 
 ---
 

@@ -21,6 +21,9 @@ class RhsPlaybackState {
   /// Сообщение об ошибке; при не null воспроизведение в состоянии ошибки
   final String? error;
 
+  /// Дополнительная нативная диагностика ошибки, если её предоставила платформа.
+  final String? errorDetails;
+
   const RhsPlaybackState({
     required this.position,
     required this.duration,
@@ -28,11 +31,12 @@ class RhsPlaybackState {
     required this.isPlaying,
     required this.isBuffering,
     this.error,
+    this.errorDetails,
   });
 
   @override
   String toString() {
     // TODO: implement toString
-    return 'RhsPlaybackState(position: $position, duration: $duration, bufferedPosition: $bufferedPosition, isPlaying: $isPlaying, isBuffering: $isBuffering, error: $error)';
+    return 'RhsPlaybackState(position: $position, duration: $duration, bufferedPosition: $bufferedPosition, isPlaying: $isPlaying, isBuffering: $isBuffering, error: $error, errorDetails: $errorDetails)';
   }
 }

@@ -108,7 +108,13 @@ AspectRatio(
 
 ### RhsPlaybackState
 
-Один объект состояния: `position`, `duration`, `bufferedPosition`, `isPlaying`, `isBuffering`, `error` (сообщение об ошибке или null). Воспроизведение и ошибка взаимоисключают друг друга.
+Помимо краткого `error`, Android может передать необязательный `errorDetails`:
+диагностику ExoPlayer для журналирования. В ней есть код ошибки, причины и
+нативный stack trace; HTTP-ошибки содержат статус и хост. URL очищаются от
+userinfo, query и fragment, а заголовки, тела и DRM-данные не передаются.
+Старые платформы и iOS могут не передавать это поле.
+
+Один объект состояния: `position`, `duration`, `bufferedPosition`, `isPlaying`, `isBuffering`, `error` (сообщение об ошибке или null) и необязательный `errorDetails`. Воспроизведение и ошибка взаимоисключают друг друга.
 
 ### RhsPlayerView
 

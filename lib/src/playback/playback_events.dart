@@ -1,6 +1,8 @@
 import 'dart:async';
-import 'package:flutter/services.dart';
+
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
+
 import 'playback_state.dart';
 
 /// Слушает канал событий платформы и предоставляет обновления состояния воспроизведения.
@@ -49,6 +51,7 @@ class RhsNativeEvents {
       final buffering = evt['isBuffering'] == true;
       final errMsg = evt['error'] as String?;
       final error = (errMsg != null && errMsg.isNotEmpty) ? errMsg : null;
+      final details = evt['errorDetails'] as String?;
       state.value = RhsPlaybackState(
         position: Duration(milliseconds: posMs),
         duration: Duration(milliseconds: durMs),
@@ -56,6 +59,7 @@ class RhsNativeEvents {
         isPlaying: playing,
         isBuffering: buffering,
         error: playing ? null : error,
+        errorDetails: playing || error == null ? null : details,
       );
     }
   }

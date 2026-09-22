@@ -1,3 +1,8 @@
+## 0.7.1 — 2026-09-22
+
+- Added optional Android playback diagnostics to error states: ExoPlayer code,
+  cause chain, sanitized native stack trace, and HTTP response status and host.
+
 ## 0.6.0
 
 - Added native iOS playback with AVPlayer and AVPlayerLayer

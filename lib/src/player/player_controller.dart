@@ -233,8 +233,10 @@ class RhsPlayerController {
   }
 
   void _updatePlayerStatus(RhsPlaybackState state) {
-    if (state.error != null) {
-      _playerStatusSubject.add(RhsPlayerStatusError(state.error!));
+    if (state.error case final message?) {
+      _playerStatusSubject.add(
+        RhsPlayerStatusError(message, errorDetails: state.errorDetails),
+      );
     } else if (state.isBuffering) {
       _playerStatusSubject.add(const RhsPlayerStatusLoading());
     } else if (state.isPlaying) {

@@ -93,4 +93,93 @@ void main() {
       null,
     );
   });
+
+  testWidgets('preserves native error details through status and clears them', (
+    tester,
+  ) async {
+    const viewId = 52;
+    const eventChannelName = 'rhsplayer/events_$viewId';
+    const tracksChannelName = 'rhsplayer/tracks_$viewId';
+    const cuesChannelName = 'rhsplayer/cues_$viewId';
+    const viewChannel = MethodChannel('rhsplayer/view_$viewId');
+    const codec = StandardMethodCodec();
+    final messenger = tester.binding.defaultBinaryMessenger;
+
+    Future<ByteData?> handleListen(ByteData? _) {
+      return Future.value(codec.encodeSuccessEnvelope(null));
+    }
+
+    messenger.setMockMessageHandler(eventChannelName, handleListen);
+    messenger.setMockMessageHandler(tracksChannelName, handleListen);
+    messenger.setMockMessageHandler(cuesChannelName, handleListen);
+    messenger.setMockMethodCallHandler(viewChannel, (call) async => <Object>[]);
+
+    final controller = RhsPlayerController.single(
+      const RhsMediaSource('https://example.com/video.m3u8'),
+    );
+    controller.attachViewId(viewId);
+    await tester.pump();
+
+    await messenger.handlePlatformMessage(
+      eventChannelName,
+      codec.encodeSuccessEnvelope(const <String, Object>{
+        'positionMs': 0,
+        'durationMs': 0,
+        'bufferedPositionMs': 0,
+        'isBuffering': false,
+        'isPlaying': false,
+        'error': 'ERROR_CODE_DRM_PROVISIONING_FAILED',
+        'errorDetails': 'PlaybackException(code=6002)',
+      }),
+      (_) {},
+    );
+    await tester.pump();
+
+    final errorStatus = controller.currentPlayerStatus;
+    expect(errorStatus, isA<RhsPlayerStatusError>());
+    expect(
+      (errorStatus as RhsPlayerStatusError).message,
+      'ERROR_CODE_DRM_PROVISIONING_FAILED',
+    );
+    expect(errorStatus.errorDetails, 'PlaybackException(code=6002)');
+
+    await messenger.handlePlatformMessage(
+      eventChannelName,
+      codec.encodeSuccessEnvelope(const <String, Object>{
+        'positionMs': 1000,
+        'durationMs': 5000,
+        'bufferedPositionMs': 2000,
+        'isBuffering': false,
+        'isPlaying': false,
+        'error': 'ERROR_CODE_IO_NETWORK_CONNECTION_FAILED',
+      }),
+      (_) {},
+    );
+    await tester.pump();
+
+    final legacyErrorStatus = controller.currentPlayerStatus;
+    expect(legacyErrorStatus, isA<RhsPlayerStatusError>());
+    expect((legacyErrorStatus as RhsPlayerStatusError).errorDetails, isNull);
+
+    await messenger.handlePlatformMessage(
+      eventChannelName,
+      codec.encodeSuccessEnvelope(const <String, Object>{
+        'positionMs': 1000,
+        'durationMs': 5000,
+        'bufferedPositionMs': 2000,
+        'isBuffering': false,
+        'isPlaying': true,
+      }),
+      (_) {},
+    );
+    await tester.pump();
+
+    expect(controller.currentPlayerStatus, isA<RhsPlayerStatusPlaying>());
+
+    await controller.dispose();
+    messenger.setMockMessageHandler(eventChannelName, null);
+    messenger.setMockMessageHandler(tracksChannelName, null);
+    messenger.setMockMessageHandler(cuesChannelName, null);
+    messenger.setMockMethodCallHandler(viewChannel, null);
+  });
 }

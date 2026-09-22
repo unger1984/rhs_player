@@ -23,5 +23,7 @@ class RhsPlayerStatusEnded extends RhsPlayerStatus {
 
 class RhsPlayerStatusError extends RhsPlayerStatus {
   final String message;
-  const RhsPlayerStatusError(this.message);
+  final String? errorDetails;
+
+  const RhsPlayerStatusError(this.message, {this.errorDetails});
 }

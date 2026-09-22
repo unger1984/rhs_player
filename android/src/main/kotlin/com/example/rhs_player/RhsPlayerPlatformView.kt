@@ -19,6 +19,7 @@ import androidx.media3.common.Tracks
 import androidx.media3.common.text.Cue
 import androidx.media3.common.text.CueGroup
 import androidx.media3.common.util.Util
+import androidx.media3.datasource.HttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import io.flutter.plugin.common.EventChannel
@@ -40,6 +41,63 @@ import android.util.Rational
 import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
 import java.lang.ref.WeakReference
+import java.net.URI
+
+private const val maxPlaybackErrorDetailsLength = 8000
+private const val maxPlaybackErrorCauses = 8
+private val httpUrlPattern = Regex("""(?i)\bhttps?://[^\s'")\]}]+""")
+private val dataUrlPattern = Regex("""(?i)\bdata:[^\s'")\]}]+""")
+
+private fun buildPlaybackErrorDetails(error: PlaybackException): String {
+  val lines = mutableListOf<String>()
+  lines += "PlaybackException(code=${error.errorCode}, name=${error.errorCodeName ?: "unknown"}, message=${sanitizeDiagnosticText(error.message).take(512)})"
+
+  var cause = error.cause
+  var causeIndex = 0
+  while (cause != null && causeIndex < maxPlaybackErrorCauses) {
+    lines += "cause[$causeIndex]=${cause.javaClass.name}: ${sanitizeDiagnosticText(cause.message).take(512)}"
+    if (cause is HttpDataSource.InvalidResponseCodeException) {
+      val host = cause.dataSpec.uri.host ?: "unknown"
+      lines += "httpResponse(status=${cause.responseCode}, host=$host)"
+    }
+    cause = cause.cause
+    causeIndex += 1
+  }
+  if (cause != null) lines += "causeChain=truncated"
+
+  lines += "nativeStack:\n${sanitizeDiagnosticText(error.stackTraceToString())}"
+  return lines.joinToString("\n").boundedPlaybackErrorDetails()
+}
+
+private fun sanitizeDiagnosticText(value: String?): String {
+  val text = value ?: "<empty>"
+  return dataUrlPattern.replace(httpUrlPattern.replace(text, ::redactHttpUrl)) {
+    "[redacted-data-url]"
+  }
+}
+
+private fun redactHttpUrl(match: MatchResult): String {
+  val url = match.value
+  return try {
+    val uri = URI(url)
+    val host = uri.host ?: return "[redacted-url]"
+    buildString {
+      append(uri.scheme)
+      append("://")
+      append(host)
+      if (uri.port != -1) append(":${uri.port}")
+      append(uri.rawPath ?: "")
+    }
+  } catch (_: Exception) {
+    "[redacted-url]"
+  }
+}
+
+private fun String.boundedPlaybackErrorDetails(): String {
+  if (length <= maxPlaybackErrorDetailsLength) return this
+  val suffix = "\n[truncated]"
+  return take(maxPlaybackErrorDetailsLength - suffix.length) + suffix
+}
 
 class RhsPlayerPlatformView(
   context: Context,
@@ -245,7 +303,8 @@ class RhsPlayerPlatformView(
           "durationMs" to (if (player.duration > 0) player.duration else 0L),
           "isBuffering" to false,
           "isPlaying" to false,
-          "error" to (error.errorCodeName ?: (error.message ?: "Playback error"))
+          "error" to (error.errorCodeName ?: (error.message ?: "Playback error")),
+          "errorDetails" to buildPlaybackErrorDetails(error),
         ))
         cancelReadyFallback()
         sharedEntry.pendingPlayOnceReady = false

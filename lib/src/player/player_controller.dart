@@ -335,17 +335,20 @@ class RhsPlayerController {
 
   /// Выбирает конкретную видео дорожку по [trackId].
   Future<void> selectVideoTrack(String trackId) async {
-    _selectedVideoTrackId = trackId; // Сохраняем выбранный трек
-    await _invoke('setVideoTrack', {'id': trackId});
-    // Уведомляем слушателей об изменении дорожек
-    _tracksSubject.add(null);
+    await _setVideoTrack(trackId);
   }
 
   /// Очищает ручные переопределения дорожек и возвращается к автоматическому выбору.
   Future<void> clearVideoTrackSelection() async {
-    _selectedVideoTrackId = null; // Сбрасываем сохраненный трек
-    await _invoke('setVideoTrack', {'id': null});
-    // Уведомляем слушателей об изменении дорожек
+    await _setVideoTrack(null);
+  }
+
+  Future<void> _setVideoTrack(String? trackId) async {
+    final accepted = await _invokeResult<bool>('setVideoTrack', {
+      'id': trackId,
+    });
+    if (accepted != true) return;
+    _selectedVideoTrackId = trackId;
     _tracksSubject.add(null);
   }
 
@@ -412,6 +415,7 @@ class RhsPlayerController {
     // Обновляем плейлист в контроллере
     playlist.clear();
     playlist.add(source);
+    _selectedVideoTrackId = null;
 
     final bool shouldPlay = autoPlay ?? this.autoPlay;
     _wasPlaying = shouldPlay;

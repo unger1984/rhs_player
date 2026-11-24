@@ -73,6 +73,7 @@ fvm flutter test
 - `ios/rhs_player/Sources/rhs_player/RhsPlayerPlugin.swift` — регистрация каналов и PlatformView
 - `ios/rhs_player/Sources/rhs_player/RhsPlayerView.swift` — AVPlayer, события, треки и PiP
 - `ios/rhs_player/Sources/rhs_player/RhsFairPlayResourceLoader.swift` — обмен SPC/CKC для FairPlay
+- `RhsHlsMasterPlaylist.swift` и `RhsHlsPlaylistResourceLoader.swift` — список вариантов HLS и фиксация одного варианта на iOS
 
 ### Пример (example/lib/)
 

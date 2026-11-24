@@ -2,6 +2,8 @@
 
 - Added optional Android playback diagnostics to error states: ExoPlayer code,
   cause chain, sanitized native stack trace, and HTTP response status and host.
+- Android restores the automatic bitrate limit when clearing a manual video track selection.
+- iOS lists quality options from the HLS master playlist and locks playback to the selected variant. Changing quality or returning to automatic selection preserves the playback position.
 
 ## 0.6.0
 

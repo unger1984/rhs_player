@@ -103,8 +103,13 @@ AspectRatio(
 - `playbackStateStream` — поток `RhsPlaybackState` (позиция, длительность, буфер, isPlaying, isBuffering, error)
 - `currentPlaybackState`, `currentError` — текущее состояние
 - `eventsStream` — поток `RhsNativeEvents?` (появляется после привязки view)
-- `getVideoTracks()`, `selectVideoTrack(id)`, `getAudioTracks()`, `selectAudioTrack(id?)`, `getSubtitleTracks()`, `selectSubtitleTrack(id?)`
+- `getVideoTracks()`, `selectVideoTrack(id)`, `clearVideoTrackSelection()`
+- `getAudioTracks()`, `selectAudioTrack(id?)`, `getSubtitleTracks()`, `selectSubtitleTrack(id?)`
 - `dispose()` — освобождение ресурсов
+
+В режиме «Авто» качество выбирает нативный плеер. Ручной выбор фиксирует
+вариант на Android и iOS. На iOS варианты берутся из HLS-манифеста.
+При смене режима или варианта AVPlayer загружает новый элемент с той же позиции.
 
 ### RhsPlaybackState
 

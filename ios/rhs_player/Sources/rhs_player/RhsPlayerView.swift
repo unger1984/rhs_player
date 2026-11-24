@@ -38,7 +38,10 @@ final class RhsPlayerView: NSObject, FlutterPlatformView, @unchecked Sendable {
   private var statusObservation: NSKeyValueObservation?
   private var timeControlObservation: NSKeyValueObservation?
   private let fairPlayQueue = DispatchQueue(label: "rhsplayer.fairplay")
-  private var fairPlayLoader: RhsFairPlayResourceLoader?
+  private var resourceLoader: AVAssetResourceLoaderDelegate?
+  private var hlsMaster: RhsHlsMasterPlaylist?
+  private var hlsDiscoveryTask: URLSessionDataTask?
+  private var hlsDiscoveryId: UUID?
 
   private var sources: [[String: Any]] = []
   private var sourceIndex = 0
@@ -47,9 +50,11 @@ final class RhsPlayerView: NSObject, FlutterPlatformView, @unchecked Sendable {
   private var pendingError: String?
   private var desiredRate: Float = 1
   private var retryAttempts = 0
-  private var manualVideoBitrate: Double?
+  private var manualVideoVariant: RhsHlsMasterPlaylist.Variant?
+  private var pendingStartPositionMs: Int?
   private var manualAudioId: String?
   private var manualSubtitleId: String?
+  private var hasManualSubtitleSelection = false
   private var isLooping = false
   private var isDataSaverEnabled = false
   private var shouldBePlaying = false
@@ -105,7 +110,8 @@ final class RhsPlayerView: NSObject, FlutterPlatformView, @unchecked Sendable {
     shouldBePlaying = false
     player.pause()
     replaceCurrentItem(with: nil)
-    fairPlayLoader = nil
+    resourceLoader = nil
+    hlsDiscoveryTask?.cancel()
     progressTimer?.invalidate()
     progressTimer = nil
     retryWorkItem?.cancel()
@@ -221,8 +227,8 @@ final class RhsPlayerView: NSObject, FlutterPlatformView, @unchecked Sendable {
     case "getVideoTracks":
       result(videoTracksPayload())
     case "setVideoTrack":
-      setVideoTrack(id: RhsValue.stringArgument(call.arguments, key: "id"))
-      result(nil)
+      let id = RhsValue.stringArgument(call.arguments, key: "id")
+      result(setVideoTrack(id: id))
     case "getAudioTracks":
       result(audioTracksPayload())
     case "setAudioTrack":
@@ -309,9 +315,6 @@ final class RhsPlayerView: NSObject, FlutterPlatformView, @unchecked Sendable {
   private func setDataSaver(_ arguments: Any?) {
     guard let args = arguments as? [String: Any] else { return }
     isDataSaverEnabled = args["enable"] as? Bool ?? false
-    if isDataSaverEnabled {
-      manualVideoBitrate = nil
-    }
     applyPreferredBitrate()
     sendTracksEvent()
   }
@@ -324,9 +327,7 @@ final class RhsPlayerView: NSObject, FlutterPlatformView, @unchecked Sendable {
     sourceIndex = 0
     retryAttempts = 0
     shouldBePlaying = args["autoPlay"] as? Bool ?? false
-    manualAudioId = nil
-    manualSubtitleId = nil
-    manualVideoBitrate = nil
+    resetTrackSelection()
     loadSource(at: 0, startPositionMs: 0, autoPlay: shouldBePlaying)
   }
 
@@ -343,12 +344,26 @@ final class RhsPlayerView: NSObject, FlutterPlatformView, @unchecked Sendable {
     sourceIndex = index
     shouldBePlaying = autoPlay
     currentHeaders = RhsValue.stringMap(source["headers"])
-    guard let asset = createAsset(url: url, source: source) else { return }
+    if replaceSourceItem(url: url, source: source, variant: manualVideoVariant,
+                         positionMs: startPositionMs, autoPlay: autoPlay) {
+      discoverHlsVariants(url: url, source: source)
+    }
+  }
+
+  private func replaceSourceItem(
+    url: URL, source: [String: Any], variant: RhsHlsMasterPlaylist.Variant?,
+    positionMs: Int, autoPlay: Bool
+  ) -> Bool {
+    guard let asset = createAsset(url: url, source: source, variant: variant) else { return false }
     let item = AVPlayerItem(asset: asset)
+    retryWorkItem?.cancel()
+    rebufferWorkItem?.cancel()
+    rebufferWorkItem = nil
     replaceCurrentItem(with: item)
-    applyPreferredBitrate()
+    item.preferredPeakBitRate = variant == nil && isDataSaverEnabled ? 800_000 : 0
     observe(item)
-    seekAndStart(item: item, positionMs: startPositionMs, autoPlay: autoPlay)
+    seekAndStart(item: item, positionMs: positionMs, autoPlay: autoPlay)
+    return true
   }
 
   private func replaceCurrentItem(with item: AVPlayerItem?) {
@@ -357,11 +372,30 @@ final class RhsPlayerView: NSObject, FlutterPlatformView, @unchecked Sendable {
     player.replaceCurrentItem(with: item)
   }
 
-  private func createAsset(url: URL, source: [String: Any]) -> AVURLAsset? {
-    let asset = AVURLAsset(url: url, options: assetOptions(headers: currentHeaders))
-    guard let drm = source["drm"] as? [String: Any] else { return asset }
+  private func createAsset(
+    url: URL, source: [String: Any], variant: RhsHlsMasterPlaylist.Variant?
+  ) -> AVURLAsset? {
+    let drm = source["drm"] as? [String: Any] ?? [:]
     let type = drm["type"] as? String ?? "none"
-    guard type != "none" else { return asset }
+    let fairPlay = type == "none" ? nil : createFairPlayLoader(drm: drm, type: type)
+    guard type == "none" || fairPlay != nil else { return nil }
+    var assetURL = url
+    var loader: AVAssetResourceLoaderDelegate? = fairPlay
+    if let variant {
+      guard let hlsMaster,
+        let restricted = RhsHlsPlaylistResourceLoader(
+          master: hlsMaster, variant: variant, fairPlay: fairPlay)
+      else { return nil }
+      assetURL = restricted.url
+      loader = restricted
+    }
+    let asset = AVURLAsset(url: assetURL, options: assetOptions(headers: currentHeaders))
+    asset.resourceLoader.setDelegate(loader, queue: fairPlayQueue)
+    resourceLoader = loader
+    return asset
+  }
+
+  private func createFairPlayLoader(drm: [String: Any], type: String) -> RhsFairPlayResourceLoader? {
     guard type == "fairPlay" else {
       reportError("DRM \(type) не поддерживается на iOS")
       return nil
@@ -374,7 +408,7 @@ final class RhsPlayerView: NSObject, FlutterPlatformView, @unchecked Sendable {
       reportError("Для FairPlay нужны licenseUrl и certificateUrl")
       return nil
     }
-    let loader = RhsFairPlayResourceLoader(
+    return RhsFairPlayResourceLoader(
       licenseUrl: licenseUrl,
       certificateUrl: certificateUrl,
       contentId: drm["contentId"] as? String,
@@ -386,9 +420,6 @@ final class RhsPlayerView: NSObject, FlutterPlatformView, @unchecked Sendable {
         }
       }
     )
-    fairPlayLoader = loader
-    asset.resourceLoader.setDelegate(loader, queue: fairPlayQueue)
-    return asset
   }
 
   private func assetOptions(headers: [String: String]?) -> [String: Any]? {
@@ -397,16 +428,20 @@ final class RhsPlayerView: NSObject, FlutterPlatformView, @unchecked Sendable {
   }
 
   private func seekAndStart(item: AVPlayerItem, positionMs: Int, autoPlay: Bool) {
+    pendingStartPositionMs = positionMs > 0 ? positionMs : nil
     guard positionMs > 0 else {
       if autoPlay { play() } else { pause() }
       return
     }
     let time = CMTime(value: Int64(positionMs), timescale: 1000)
     item.seek(
-      to: time,
-      completionHandler: { [weak self] _ in
-        guard let self else { return }
-        if autoPlay { play() } else { pause() }
+      to: time, toleranceBefore: .zero, toleranceAfter: .zero,
+      completionHandler: { [weak self, weak item] finished in
+        DispatchQueue.main.async {
+          guard let self, let item, self.player.currentItem === item, finished else { return }
+          self.pendingStartPositionMs = nil
+          if self.shouldBePlaying { self.play() } else { self.pause() }
+        }
       })
   }
 
@@ -414,7 +449,8 @@ final class RhsPlayerView: NSObject, FlutterPlatformView, @unchecked Sendable {
     removeItemObservers()
     statusObservation = item.observe(\.status, options: [.new]) { [weak self] item, _ in
       DispatchQueue.main.async {
-        self?.handleStatus(item.status, error: item.error)
+        guard let self, self.player.currentItem === item else { return }
+        self.handleStatus(item.status, error: item.error)
       }
     }
     endObserver = NotificationCenter.default.addObserver(
@@ -459,6 +495,7 @@ final class RhsPlayerView: NSObject, FlutterPlatformView, @unchecked Sendable {
     case .readyToPlay:
       retryAttempts = 0
       retryWorkItem?.cancel()
+      restoreMediaSelection()
       sendTracksEvent()
       sendPlaybackEvent()
     case .failed:
@@ -473,6 +510,7 @@ final class RhsPlayerView: NSObject, FlutterPlatformView, @unchecked Sendable {
   private func handleItemEnded() {
     let nextIndex = sourceIndex + 1
     if sources.indices.contains(nextIndex) {
+      resetTrackSelection()
       loadSource(at: nextIndex, startPositionMs: 0, autoPlay: true)
       return
     }
@@ -492,7 +530,7 @@ final class RhsPlayerView: NSObject, FlutterPlatformView, @unchecked Sendable {
   }
 
   private func retryCurrentSource() {
-    let position = currentPositionMs
+    let position = pendingStartPositionMs ?? currentPositionMs
     loadSource(at: sourceIndex, startPositionMs: position, autoPlay: shouldBePlaying)
   }
 
@@ -583,12 +621,8 @@ final class RhsPlayerView: NSObject, FlutterPlatformView, @unchecked Sendable {
   }
 
   private func applyPreferredBitrate() {
-    guard let item = player.currentItem else { return }
-    if let manualVideoBitrate {
-      item.preferredPeakBitRate = manualVideoBitrate
-    } else {
-      item.preferredPeakBitRate = isDataSaverEnabled ? 800_000 : 0
-    }
+    player.currentItem?.preferredPeakBitRate =
+      manualVideoVariant == nil && isDataSaverEnabled ? 800_000 : 0
   }
 
   private func stopPictureInPicture() {
@@ -617,36 +651,75 @@ final class RhsPlayerView: NSObject, FlutterPlatformView, @unchecked Sendable {
   }
 
   private func videoTracksPayload() -> [[String: Any]] {
-    guard let item = player.currentItem else { return [] }
-    var bitrates = Set<Double>()
-    for event in item.accessLog()?.events ?? [] where event.indicatedBitrate > 0 {
-      bitrates.insert(event.indicatedBitrate)
-    }
-    if let manualVideoBitrate {
-      bitrates.insert(manualVideoBitrate)
-    }
-    let active = manualVideoBitrate ?? item.accessLog()?.events.last?.indicatedBitrate ?? 0
-    return bitrates.sorted(by: >).map { bitrate in
+    let activeBitrate = player.currentItem?.accessLog()?.events.last?.indicatedBitrate ?? 0
+    let variants = hlsMaster?.variants.sorted { $0.bitrate > $1.bitrate } ?? []
+    return variants.map { variant in
       [
-        "id": String(Int(bitrate)),
-        "label": RhsValue.bitrateLabel(bitrate),
-        "bitrate": Int(bitrate),
-        "width": NSNull(),
-        "height": NSNull(),
-        "selected": RhsValue.nearlyEqual(bitrate, active),
+        "id": variant.id,
+        "label": RhsValue.bitrateLabel(Double(variant.bitrate)),
+        "bitrate": variant.bitrate,
+        "width": variant.width as Any,
+        "height": variant.height as Any,
+        "selected": manualVideoVariant.map { $0.id == variant.id }
+          ?? RhsValue.nearlyEqual(Double(variant.bitrate), activeBitrate),
       ]
     }
   }
 
-  private func setVideoTrack(id: String?) {
-    guard let id, let bitrate = Double(id), bitrate > 0 else {
-      manualVideoBitrate = nil
-      applyPreferredBitrate()
-      sendTracksEvent()
-      return
+  private func setVideoTrack(id: String?) -> Bool {
+    let variant = hlsMaster?.variants.first { $0.id == id }
+    if id != nil && variant == nil { return false }
+    if manualVideoVariant?.id == variant?.id { return true }
+    guard sources.indices.contains(sourceIndex),
+      let urlString = sources[sourceIndex]["url"] as? String,
+      let url = URL(string: urlString)
+    else { return false }
+    let position = pendingStartPositionMs ?? currentPositionMs
+    guard replaceSourceItem(url: url, source: sources[sourceIndex], variant: variant,
+                            positionMs: position, autoPlay: shouldBePlaying)
+    else { return false }
+    manualVideoVariant = variant
+    sendTracksEvent()
+    return true
+  }
+
+  private func discoverHlsVariants(url: URL, source: [String: Any]) {
+    let drm = source["drm"] as? [String: Any]
+    guard hlsMaster == nil, hlsDiscoveryTask == nil,
+      url.pathExtension.lowercased() == "m3u8" || drm?["type"] as? String == "fairPlay"
+    else { return }
+    let requestId = UUID()
+    hlsDiscoveryId = requestId
+    var request = URLRequest(url: url)
+    request.allHTTPHeaderFields = currentHeaders
+    hlsDiscoveryTask = URLSession.shared.dataTask(with: request) { [weak self] data, response, _ in
+      let master = Self.readHlsMaster(data: data, response: response)
+      DispatchQueue.main.async {
+        guard let self, !self.isDisposed, self.hlsDiscoveryId == requestId else { return }
+        self.hlsDiscoveryTask = nil
+        self.hlsMaster = master
+        self.sendTracksEvent()
+      }
     }
-    manualVideoBitrate = bitrate
-    applyPreferredBitrate()
+    hlsDiscoveryTask?.resume()
+  }
+
+  private static func readHlsMaster(data: Data?, response: URLResponse?) -> RhsHlsMasterPlaylist? {
+    guard let response = response as? HTTPURLResponse, (200..<300).contains(response.statusCode),
+      let baseURL = response.url, let data, let text = String(data: data, encoding: .utf8)
+    else { return nil }
+    return RhsHlsMasterPlaylist(text: text, baseURL: baseURL)
+  }
+
+  private func resetTrackSelection() {
+    manualVideoVariant = nil
+    manualAudioId = nil
+    manualSubtitleId = nil
+    hasManualSubtitleSelection = false
+    hlsDiscoveryId = nil
+    hlsDiscoveryTask?.cancel()
+    hlsDiscoveryTask = nil
+    hlsMaster = nil
     sendTracksEvent()
   }
 
@@ -688,8 +761,18 @@ final class RhsPlayerView: NSObject, FlutterPlatformView, @unchecked Sendable {
   private func setSubtitleTrack(id: String?) {
     selectMediaOption(id: id, characteristic: .legible, selectDefaultWhenNil: false)
     manualSubtitleId = id
+    hasManualSubtitleSelection = true
     if id == nil {
       cuesSink?(["text": ""])
+    }
+  }
+
+  private func restoreMediaSelection() {
+    if let manualAudioId {
+      selectMediaOption(id: manualAudioId, characteristic: .audible, selectDefaultWhenNil: true)
+    }
+    if hasManualSubtitleSelection {
+      selectMediaOption(id: manualSubtitleId, characteristic: .legible, selectDefaultWhenNil: false)
     }
   }
 

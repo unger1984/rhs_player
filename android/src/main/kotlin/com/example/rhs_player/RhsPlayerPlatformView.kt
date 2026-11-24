@@ -258,8 +258,7 @@ class RhsPlayerPlatformView(
         }
         "setVideoTrack" -> {
           val id = call.argument<String>("id")
-          selectVideoTrack(id)
-          result.success(null)
+          result.success(selectVideoTrack(id))
         }
         "getAudioTracks" -> result.success(collectAudioTracks())
         "setAudioTrack" -> {
@@ -577,25 +576,22 @@ class RhsPlayerPlatformView(
     return parts.joinToString(" • ")
   }
 
-  private fun selectVideoTrack(id: String?) {
+  private fun selectVideoTrack(id: String?): Boolean {
     android.util.Log.d("RhsPlayer", "=== selectVideoTrack called with id: $id ===")
     
     // Очищаем выбор трека (возврат к автоматическому выбору)
     if (id.isNullOrEmpty()) {
       android.util.Log.d("RhsPlayer", "Clearing all video track overrides")
-      player.trackSelectionParameters = player.trackSelectionParameters
-        .buildUpon()
-        .clearOverridesOfType(C.TRACK_TYPE_VIDEO)
-        .setMaxVideoSize(Int.MAX_VALUE, Int.MAX_VALUE)
-        .build()
-      return
+      sharedEntry.clearVideoTrackSelection()
+      sendTracksEvent()
+      return true
     }
 
     // Парсим ID (формат: "height:width:bitrate")
     val parts = id.split(":")
     if (parts.size != 3) {
       android.util.Log.e("RhsPlayer", "ERROR: Invalid track ID format: $id")
-      return
+      return false
     }
     
     val targetHeight = parts[0].toIntOrNull() ?: 0
@@ -654,12 +650,13 @@ class RhsPlayerPlatformView(
             sendTracksEvent() 
           }, 300)
           
-          return
+          return true
         }
       }
     }
     
     android.util.Log.e("RhsPlayer", "!!! ERROR: Track NOT FOUND !!!")
+    return false
   }
 
   private fun sendCuesEvent(cueGroup: CueGroup) {
@@ -862,6 +859,7 @@ class RhsPlayerPlatformView(
     player.playWhenReady = false
     suppressAudio()
 
+    sharedEntry.clearVideoTrackSelection()
     player.setMediaSource(mediaSource)
     player.prepare()
 
@@ -930,6 +928,7 @@ private data class SharedPlayerEntry(
   var pendingPlayOnceReady: Boolean = false,
   var hasRenderedFirstFrame: Boolean = false,
   var audioSuppressed: Boolean = false,
+  var dataSaver: Boolean = false,
   var storedVolume: Float = 1f,
   var readyFallbackRunnable: Runnable? = null,
   var attachedView: WeakReference<PlayerView?>? = null,
@@ -1137,12 +1136,16 @@ private fun SharedPlayerEntry.ensureInitialized(
 }
 
 private fun SharedPlayerEntry.applyDataSaverInternal(enable: Boolean) {
-  val builder = player.trackSelectionParameters.buildUpon()
-  if (enable) {
-    builder.clearOverridesOfType(C.TRACK_TYPE_VIDEO)
-    builder.setMaxVideoBitrate(800_000)
-  } else {
-    builder.setMaxVideoBitrate(Int.MAX_VALUE)
+  dataSaver = enable
+  if (player.trackSelectionParameters.overrides.values.none { it.type == C.TRACK_TYPE_VIDEO }) {
+    clearVideoTrackSelection()
   }
-  player.trackSelectionParameters = builder.build()
+}
+
+private fun SharedPlayerEntry.clearVideoTrackSelection() {
+  player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+    .clearOverridesOfType(C.TRACK_TYPE_VIDEO)
+    .setMaxVideoSize(Int.MAX_VALUE, Int.MAX_VALUE)
+    .setMaxVideoBitrate(if (dataSaver) 800_000 else Int.MAX_VALUE)
+    .build()
 }

@@ -5,6 +5,7 @@ final class RhsFairPlayResourceLoader: NSObject, AVAssetResourceLoaderDelegate {
   private let licenseUrl: URL
   private let certificateUrl: URL
   private let contentId: String?
+  private let licenseFormat: String
   private let headers: [String: String]
   private let onError: (String) -> Void
   private let session: URLSession
@@ -14,12 +15,14 @@ final class RhsFairPlayResourceLoader: NSObject, AVAssetResourceLoaderDelegate {
     licenseUrl: URL,
     certificateUrl: URL,
     contentId: String?,
+    licenseFormat: String,
     headers: [String: String],
     onError: @escaping (String) -> Void
   ) {
     self.licenseUrl = licenseUrl
     self.certificateUrl = certificateUrl
     self.contentId = contentId
+    self.licenseFormat = licenseFormat
     self.headers = headers
     self.onError = onError
     session = URLSession(configuration: .ephemeral)
@@ -121,10 +124,12 @@ final class RhsFairPlayResourceLoader: NSObject, AVAssetResourceLoaderDelegate {
     contentIdentifier: String,
     completion: @escaping (Result<Data, Error>) -> Void
   ) {
-    let body: [String: String] = [
-      "content_id": percentEncode(contentIdentifier),
-      "spc_message": spc.base64EncodedString(),
-    ]
+    let body: [String: String] = licenseFormat == "kinescope"
+      ? ["spc": spc.base64EncodedString()]
+      : [
+        "content_id": percentEncode(contentIdentifier),
+        "spc_message": spc.base64EncodedString(),
+      ]
     guard let bodyData = try? JSONSerialization.data(withJSONObject: body) else {
       completion(.failure(RhsFairPlayError.invalidLicenseRequest))
       return
@@ -135,6 +140,7 @@ final class RhsFairPlayResourceLoader: NSObject, AVAssetResourceLoaderDelegate {
     request.httpBody = bodyData
     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
     applyHeaders(to: &request)
+    let responseField = licenseFormat == "kinescope" ? "ckc" : "ckc_message"
     session.dataTask(with: request) { data, response, error in
       if let error {
         completion(.failure(error))
@@ -144,7 +150,9 @@ final class RhsFairPlayResourceLoader: NSObject, AVAssetResourceLoaderDelegate {
         completion(.failure(RhsFairPlayError.httpStatus(response)))
         return
       }
-      guard let data, let ckc = RhsFairPlayResourceLoader.decodeCkc(data) else {
+      guard let data,
+        let ckc = RhsFairPlayResourceLoader.decodeCkc(data, responseField: responseField)
+      else {
         completion(.failure(RhsFairPlayError.invalidLicenseResponse))
         return
       }
@@ -174,9 +182,9 @@ final class RhsFairPlayResourceLoader: NSObject, AVAssetResourceLoaderDelegate {
     return (200...299).contains(response.statusCode)
   }
 
-  private static func decodeCkc(_ data: Data) -> Data? {
+  private static func decodeCkc(_ data: Data, responseField: String) -> Data? {
     if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-      let value = json["ckc_message"] as? String
+      let value = json[responseField] as? String
     {
       return Data(base64Encoded: value)
     }

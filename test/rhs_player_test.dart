@@ -46,6 +46,26 @@ void main() {
     expect(drm['type'], 'fairPlay');
     expect(drm['licenseUrl'], 'https://example.com/license');
     expect(drm['certificateUrl'], 'https://example.com/certificate.der');
+    expect(drm['fairPlayLicenseFormat'], 'playerNow');
+    await controller.dispose();
+  });
+
+  test('passes Kinescope FairPlay format to the native player', () async {
+    final controller = RhsPlayerController.single(
+      const RhsMediaSource(
+        'https://example.com/master.m3u8',
+        drm: RhsDrmConfig(
+          type: RhsDrmType.fairPlay,
+          licenseUrl: 'https://example.com/license',
+          certificateUrl: 'https://example.com/certificate.der',
+          fairPlayLicenseFormat: RhsFairPlayLicenseFormat.kinescope,
+        ),
+      ),
+    );
+    final playlist = controller.creationParams['playlist'] as List<Object?>;
+    final source = playlist.single as Map<String, Object?>;
+    final drm = source['drm'] as Map<String, Object?>;
+    expect(drm['fairPlayLicenseFormat'], 'kinescope');
     await controller.dispose();
   });
 

@@ -269,6 +269,7 @@ class RhsPlayerController {
     'clearKey': drm.clearKey,
     'contentId': drm.contentId,
     'certificateUrl': drm.certificateUrl,
+    'fairPlayLicenseFormat': drm.fairPlayLicenseFormat.name,
   };
 
   /// Начинает воспроизведение, если готов.

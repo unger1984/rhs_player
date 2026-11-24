@@ -13,6 +13,15 @@ enum RhsDrmType {
   fairPlay,
 }
 
+/// Формат JSON-запроса и ответа сервера лицензий FairPlay.
+enum RhsFairPlayLicenseFormat {
+  /// PlayerNow: content_id/spc_message → ckc_message.
+  playerNow,
+
+  /// Kinescope: spc → ckc.
+  kinescope,
+}
+
 /// Набор конфигурации DRM, передаваемый движку нативного плеера.
 ///
 /// Объект конфигурации используется на Android (Widevine / ClearKey)
@@ -42,6 +51,9 @@ class RhsDrmConfig {
   /// Используется только при [type] == [RhsDrmType.fairPlay].
   final String? certificateUrl;
 
+  /// Формат обмена лицензией на iOS. На Android не используется.
+  final RhsFairPlayLicenseFormat fairPlayLicenseFormat;
+
   /// Создает конфигурацию DRM.
   const RhsDrmConfig({
     required this.type,
@@ -50,6 +62,7 @@ class RhsDrmConfig {
     this.clearKey,
     this.contentId,
     this.certificateUrl,
+    this.fairPlayLicenseFormat = RhsFairPlayLicenseFormat.playerNow,
   });
 
   /// Указывает, включена ли DRM для текущего медиа.

@@ -378,6 +378,7 @@ final class RhsPlayerView: NSObject, FlutterPlatformView, @unchecked Sendable {
       licenseUrl: licenseUrl,
       certificateUrl: certificateUrl,
       contentId: drm["contentId"] as? String,
+      licenseFormat: drm["fairPlayLicenseFormat"] as? String ?? "playerNow",
       headers: RhsValue.stringMap(drm["headers"]) ?? [:],
       onError: { [weak self] message in
         DispatchQueue.main.async {

@@ -167,6 +167,18 @@ RhsMediaSource(
 `skd://` URI в HLS-манифесте. `headers` отправляются при загрузке сертификата
 и лицензии.
 
+Для Kinescope задайте `fairPlayLicenseFormat: RhsFairPlayLicenseFormat.kinescope`
+в `RhsDrmConfig`: запрос содержит JSON `spc`, ответ — JSON `ckc`, оба значения
+в base64. `licenseUrl` и `certificateUrl` берутся из данных конкретного видео.
+По умолчанию используется `RhsFairPlayLicenseFormat.playerNow`, поэтому
+существующие настройки PlayerNow не требуют изменений. На Android этот параметр
+не используется: для Kinescope по-прежнему задаётся Widevine и его `licenseUrl`.
+
+Приложение на iOS должно настроить общую `AVAudioSession` для воспроизведения
+медиа: `setCategory(.playback, mode: .moviePlayback)` и `setActive(true)`.
+Эта настройка выполняется приложением, поскольку аудиосессия общая для всех
+его плееров и аудиокомпонентов.
+
 Если сервер отдаёт разные потоки для Android и iOS, выберите источник в
 приложении перед созданием контроллера:
 
